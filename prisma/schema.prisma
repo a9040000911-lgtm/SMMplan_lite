@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Устанавливаем SQLite для локальной разработки, как обсудили в плане работ. 
+// Позже можно будет переключить на postgresql
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+enum Role {
+  USER
+  ADMIN
+  SUPPORT
+  SEO
+  INVESTOR
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  // В SQLite enum'ов на уровне БД нет, Prisma эмулирует их через text/String
+  role      String   @default("USER")
+  balance   Float    @default(0.0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  authTokens AuthToken[]
+  sessions   Session[]
+}
+
+model AuthToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  used      Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+}
+
+model Session {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  userAgent  String?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+}
