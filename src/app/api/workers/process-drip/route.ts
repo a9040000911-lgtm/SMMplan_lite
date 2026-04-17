@@ -21,6 +21,7 @@ export async function GET(request: Request) {
       nextRunAt: { lte: now }
     },
     take: 20, // Process in small batches
+    include: { service: true },
     orderBy: { nextRunAt: 'asc' }
   });
 
@@ -53,9 +54,13 @@ export async function GET(request: Request) {
 
       const provider = await providerService.getDefaultProvider();
       
+      if (!order.service?.externalId) {
+         throw new Error(`Service has no external ID mapped.`);
+      }
+
       // We DO NOT pass runs and interval to provider, because WE are orchestrating it locally.
       const res = await provider.createOrder(
-        order.serviceId, 
+        order.service.externalId, 
         order.link, 
         qtyToOrder
       );

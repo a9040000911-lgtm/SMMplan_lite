@@ -15,6 +15,7 @@ export async function GET(request: Request) {
   const pendingOrders = await db.order.findMany({
     where: { status: 'PENDING', isDripFeed: false },
     take: 50,
+    include: { service: true },
     orderBy: { createdAt: 'asc' }
   });
 
@@ -30,8 +31,12 @@ export async function GET(request: Request) {
     try {
       const provider = await providerService.getDefaultProvider();
       
+      if (!order.service?.externalId) {
+         throw new Error(`Service has no external ID mapped.`);
+      }
+
       const res = await provider.createOrder(
-        order.serviceId, 
+        order.service.externalId, 
         order.link, 
         order.quantity, 
         order.runs || undefined, 

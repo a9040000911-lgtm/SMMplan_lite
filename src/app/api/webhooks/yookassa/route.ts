@@ -3,6 +3,17 @@ import { paymentService } from '@/services/financial/payment.service';
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get('x-forwarded-for') || (req as any).ip || '';
+    
+    // Simplistic YooKassa IP whitelist check
+    const isYooKassa = ['185.71.76.', '185.71.77.', '77.75.153.', '77.75.154.', '77.75.156.', '2a02:5180'].some(prefix => ip.includes(prefix));
+    
+    // In dev we bypass, in Prod we strictly deny unauthorized IPs
+    if (!isYooKassa && process.env.NODE_ENV === 'production') {
+       console.error(`[Webhook] Unrecognized YooKassa IP: ${ip}`);
+       return NextResponse.json({ error: 'Unauthorized IP' }, { status: 403 });
+    }
+
     const rawBody = await req.json();
     
     // YooKassa Webhook Payload Example:

@@ -9,8 +9,9 @@ export class OrderSyncWorker {
     console.log('[SyncWorker] Processing PENDING queue...');
     
     const pendingOrders = await db.order.findMany({
-      where: { status: 'PENDING' },
+      where: { status: 'PENDING', isDripFeed: false },
       take: 50,
+      include: { service: true },
       orderBy: { createdAt: 'asc' }
     });
 
@@ -21,8 +22,12 @@ export class OrderSyncWorker {
 
       for (const order of pendingOrders) {
         try {
+          if (!order.service?.externalId) {
+             throw new Error(`Service has no external ID mapped.`);
+          }
+
           const res = await provider.createOrder(
-            order.serviceId, 
+            order.service.externalId, 
             order.link, 
             order.quantity,
             order.runs || undefined,
@@ -35,11 +40,16 @@ export class OrderSyncWorker {
               data: { externalId: res.externalId, status: 'IN_PROGRESS', error: null }
             });
           } else {
+            const newRetryCount = (order.retryCount || 0) + 1;
+            const isFatal = newRetryCount >= 3;
             await db.order.update({
               where: { id: order.id },
-              data: { error: res.error || 'Failed to submit' }
+              data: { 
+                error: res.error || 'Failed to submit',
+                retryCount: newRetryCount,
+                status: isFatal ? 'ERROR' : 'PENDING'
+              }
             });
-            // Keeping status as PENDING to retry, or you could change to ERROR based on business need.
           }
         } catch (e: any) {
           console.error(`[SyncWorker] Failed to push order ${order.id}:`, e);
@@ -95,28 +105,36 @@ export class OrderSyncWorker {
         if (newLocalStatus !== order.status || newStatusData.remains !== order.remains) {
           
           await db.$transaction(async (tx) => {
+            // Re-read order inside transaction to prevent double-refund race
+            const freshOrder = await tx.order.findUniqueOrThrow({
+              where: { id: order.id }
+            });
+
+            // If already refunded by another concurrent run, skip
+            if (freshOrder.status === 'CANCELED' || freshOrder.status === 'PARTIAL') {
+              return; // Already processed — idempotency guard
+            }
+
             // Lock user if we need to refund
             if (newLocalStatus === 'CANCELED' || newLocalStatus === 'PARTIAL') {
-              if (order.status !== 'CANCELED' && order.status !== 'PARTIAL') {
                 // Determine refund amount
                 if (newLocalStatus === 'CANCELED') {
-                  refundAmount = order.charge; // Full refund
+                  refundAmount = freshOrder.charge; // Full refund
                 } else if (newLocalStatus === 'PARTIAL') {
                   // Partial refund based on remains ratio
-                  const refundRatio = newStatusData.remains / order.quantity;
-                  refundAmount = Math.floor(order.charge * refundRatio);
+                  const refundRatio = newStatusData.remains / freshOrder.quantity;
+                  refundAmount = Math.floor(freshOrder.charge * refundRatio);
                 }
 
                 if (refundAmount > 0) {
                   await tx.user.update({
-                    where: { id: order.userId },
+                    where: { id: freshOrder.userId },
                     data: { 
                       balance: { increment: refundAmount },
-                      totalSpent: { decrement: refundAmount } // Rollback LTV technically
+                      totalSpent: { decrement: refundAmount }
                     }
                   });
                 }
-              }
             }
 
             // Update order

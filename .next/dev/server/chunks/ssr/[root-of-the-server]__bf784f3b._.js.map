@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 22, "column": 0}, "map": {"version":3,"sources":["file:///D:/Smmplan_lite/src/app/page.tsx"],"sourcesContent":["import Link from \"next/link\";\n\nexport default function Home() {\n  return (\n    <main className=\"min-h-screen flex flex-col items-center justify-center p-24 bg-zinc-50\">\n      <div className=\"max-w-md w-full bg-white rounded-2xl shadow-sm border border-zinc-100 p-8 text-center space-y-6\">\n        <h1 className=\"text-3xl font-bold tracking-tight text-zinc-900\">SMMplan Lite</h1>\n        <p className=\"text-zinc-500\">Автоматизированная панель SMM услуг 2026 года.</p>\n        \n        <SmartOrderForm />\n      </div>\n    </main>\n  );\n}\n"],"names":[],"mappings":";;;;;;AAEe,SAAS;IACtB,qBACE,8OAAC;QAAK,WAAU;kBACd,cAAA,8OAAC;YAAI,WAAU;;8BACb,8OAAC;oBAAG,WAAU;8BAAkD;;;;;;8BAChE,8OAAC;oBAAE,WAAU;8BAAgB;;;;;;8BAE7B,8OAAC;;;;;;;;;;;;;;;;AAIT"}}]
-}
