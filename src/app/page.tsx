@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SmartOrderForm } from "@/components/orders/SmartOrderForm";
 
 export default function Home() {
   return (
@@ -7,14 +8,7 @@ export default function Home() {
         <h1 className="text-3xl font-bold tracking-tight text-zinc-900">SMMplan Lite</h1>
         <p className="text-zinc-500">Автоматизированная панель SMM услуг 2026 года.</p>
         
-        <div className="pt-4">
-          <Link 
-            href="/login" 
-            className="inline-flex w-full justify-center items-center px-4 py-3 bg-zinc-900 text-white font-medium rounded-xl hover:bg-zinc-800 transition-colors"
-          >
-            Войти в систему
-          </Link>
-        </div>
+        <SmartOrderForm />
       </div>
     </main>
   );

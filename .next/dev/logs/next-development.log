@@ -1,0 +1,16 @@
+[00:00:17.363] Server  LOG      ✓ Ready in 11.7s
+[00:00:20.409] Server  LOG      ○ Compiling / ...
+[00:00:26.162] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:49.258] Server  LOG     prisma:query "SELECT `main`.`User`.`id`, `main`.`User`.`email`, `main`.`User`.`role`, `main`.`User`.`balance`, `main`.`User`.`totalSpent`, `main`.`User`.`personalDiscount`, `main`.`User`.`apiKey`, `main`.`User`.`createdAt`, `main`.`User`.`updatedAt` FROM `main`.`User` WHERE (`main`.`User`.`email` = ? AND 1=1) LIMIT ? OFFSET ?"
+[00:00:49.275] Server  LOG     prisma:query "INSERT INTO `main`.`User` (`id`, `email`, `role`, `balance`, `totalSpent`, `personalDiscount`, `createdAt`, `updatedAt`) VALUES (?,?,?,?,?,?,?,?) RETURNING `id` AS `id`, `email` AS `email`, `role` AS `role`, `balance` AS `balance`, `totalSpent` AS `totalSpent`, `personalDiscount` AS `personalDiscount`, `apiKey` AS `apiKey`, `createdAt` AS `createdAt`, `updatedAt` AS `updatedAt`"
+[00:00:49.294] Server  LOG     prisma:query "INSERT INTO `main`.`AuthToken` (`id`, `token`, `userId`, `used`, `expiresAt`, `createdAt`) VALUES (?,?,?,?,?,?) RETURNING `id` AS `id`, `token` AS `token`, `userId` AS `userId`, `used` AS `used`, `expiresAt` AS `expiresAt`, `createdAt` AS `createdAt`"
+[00:00:49.295] Server  LOG     ------------ MAGIC LINK ------------
+[00:00:49.296] Server  LOG     To: art@mspektr.ru
+[00:00:49.297] Server  LOG     Link: http://localhost:3000/api/auth/verify?token=3b60102002fcb9496c953e813e4e449b0f4cd19fe1d591c38b8e052920c6ca21
+[00:00:49.298] Server  LOG     ------------------------------------
+[00:00:49.299] Server  WARN    ⚠️ SMTP_HOST is not set. Magic link printed to console only.
+[00:03:22.542] Server  LOG      ✓ Compiled in 175ms
+[00:03:23.098] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:03:29.991] Server  LOG      ✓ Compiled in 757ms
+[00:08:05.591] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:37:38.657] Server  LOG      ✓ Compiled in 209ms

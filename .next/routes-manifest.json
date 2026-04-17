@@ -1,0 +1,269 @@
+{
+  "version": 3,
+  "pages404": true,
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "priority": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    }
+  ],
+  "headers": [],
+  "rewrites": {
+    "beforeFiles": [],
+    "afterFiles": [],
+    "fallback": []
+  },
+  "dynamicRoutes": [
+    {
+      "page": "/admin/pages/[slug]",
+      "regex": "^/admin/pages/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug"
+      },
+      "namedRegex": "^/admin/pages/(?<nxtPslug>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/admin/support/[id]",
+      "regex": "^/admin/support/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/admin/support/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/admin/tickets/[id]",
+      "regex": "^/admin/tickets/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/admin/tickets/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/media/[...path]",
+      "regex": "^/api/media/(.+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPpath": "nxtPpath"
+      },
+      "namedRegex": "^/api/media/(?<nxtPpath>.+?)(?:/)?$"
+    },
+    {
+      "page": "/dashboard/support/[id]",
+      "regex": "^/dashboard/support/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/dashboard/support/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/dashboard/tickets/[id]",
+      "regex": "^/dashboard/tickets/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/dashboard/tickets/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/p/[slug]",
+      "regex": "^/p/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug"
+      },
+      "namedRegex": "^/p/(?<nxtPslug>[^/]+?)(?:/)?$"
+    }
+  ],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_global-error",
+      "regex": "^/_global\\-error(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_global\\-error(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/admin/finance",
+      "regex": "^/admin/finance(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/finance(?:/)?$"
+    },
+    {
+      "page": "/admin/pages",
+      "regex": "^/admin/pages(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/pages(?:/)?$"
+    },
+    {
+      "page": "/admin/settings",
+      "regex": "^/admin/settings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/settings(?:/)?$"
+    },
+    {
+      "page": "/admin/support",
+      "regex": "^/admin/support(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/support(?:/)?$"
+    },
+    {
+      "page": "/admin/tickets",
+      "regex": "^/admin/tickets(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/tickets(?:/)?$"
+    },
+    {
+      "page": "/api/auth/verify",
+      "regex": "^/api/auth/verify(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/verify(?:/)?$"
+    },
+    {
+      "page": "/api/cron/sync",
+      "regex": "^/api/cron/sync(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/cron/sync(?:/)?$"
+    },
+    {
+      "page": "/api/cron/sync-orders",
+      "regex": "^/api/cron/sync\\-orders(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/cron/sync\\-orders(?:/)?$"
+    },
+    {
+      "page": "/api/dev/sandbox/yookassa",
+      "regex": "^/api/dev/sandbox/yookassa(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/dev/sandbox/yookassa(?:/)?$"
+    },
+    {
+      "page": "/api/support/messages",
+      "regex": "^/api/support/messages(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/support/messages(?:/)?$"
+    },
+    {
+      "page": "/api/v1/order",
+      "regex": "^/api/v1/order(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/v1/order(?:/)?$"
+    },
+    {
+      "page": "/api/v1/services",
+      "regex": "^/api/v1/services(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/v1/services(?:/)?$"
+    },
+    {
+      "page": "/api/v1/status",
+      "regex": "^/api/v1/status(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/v1/status(?:/)?$"
+    },
+    {
+      "page": "/api/webhooks/crypto",
+      "regex": "^/api/webhooks/crypto(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/webhooks/crypto(?:/)?$"
+    },
+    {
+      "page": "/api/webhooks/yookassa",
+      "regex": "^/api/webhooks/yookassa(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/webhooks/yookassa(?:/)?$"
+    },
+    {
+      "page": "/api/workers/process-drip",
+      "regex": "^/api/workers/process\\-drip(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/workers/process\\-drip(?:/)?$"
+    },
+    {
+      "page": "/api/workers/provision",
+      "regex": "^/api/workers/provision(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/workers/provision(?:/)?$"
+    },
+    {
+      "page": "/api/workers/sync-catalog",
+      "regex": "^/api/workers/sync\\-catalog(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/workers/sync\\-catalog(?:/)?$"
+    },
+    {
+      "page": "/api/workers/sync-status",
+      "regex": "^/api/workers/sync\\-status(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/workers/sync\\-status(?:/)?$"
+    },
+    {
+      "page": "/dashboard",
+      "regex": "^/dashboard(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard(?:/)?$"
+    },
+    {
+      "page": "/dashboard/new-order",
+      "regex": "^/dashboard/new\\-order(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/new\\-order(?:/)?$"
+    },
+    {
+      "page": "/dashboard/settings/api",
+      "regex": "^/dashboard/settings/api(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/settings/api(?:/)?$"
+    },
+    {
+      "page": "/dashboard/support",
+      "regex": "^/dashboard/support(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/support(?:/)?$"
+    },
+    {
+      "page": "/dashboard/tickets",
+      "regex": "^/dashboard/tickets(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/tickets(?:/)?$"
+    },
+    {
+      "page": "/login",
+      "regex": "^/login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/login(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "rsc",
+    "varyHeader": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "prefetchHeader": "next-router-prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSuffix": ".prefetch.rsc",
+    "prefetchSegmentHeader": "next-router-segment-prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments",
+    "clientParamParsing": false,
+    "dynamicRSCPrerender": false
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  }
+}

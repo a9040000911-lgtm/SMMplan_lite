@@ -1,12 +1,10 @@
-# SMMplan_lite
+## Current Milestone: v2.0 Extensions & Integration
 
-## What This Is
+**Goal:** Transform SMMplan_lite from a standalone frontend B2C portal into a scalable B2B architecture via external API accessibility, and prepare global expansion via i18n.
 
-SMMplan_lite — это инновационная, легковесная и полностью автоматизированная SMM-панель для перепродажи услуг. Главное отличие продукта: «умная витрина», где клиент просто вставляет ссылку, а система с помощью парсера сама определяет соцсеть (пользователю не нужно выбирать соцсеть вручную, но он всё равно выбирает категорию услуг и саму услугу). Включает в себя автоматическую регистрацию, мощную RBAC-систему ролей, встроенную бухгалтерию, тикетную платформу Enterprise-уровня и полное покрытие налогов и комиссий за счет высокой (>300%) маржи.
-
-## Core Value
-
-Бесшовный и моментальный опыт покупки (Smart URL Matching) для пользователя и абсолютная финансовая прозрачность (Бухгалтерский модуль, предотвращение двойных возвратов, парциальные возвраты) для владельца.
+**Target features:**
+- B2B Reseller API capabilities (so other panels can buy from us).
+- Multilingual localization framework (RU/EN).
 
 ## Current State: v1.0 (SHIPPED)
 - **Foundation & Core:** Next.js 16 App Router perfectly integrated with Prisma and SQLite. Magic Link stateless JWT authentication deployed.
@@ -16,9 +14,9 @@ SMMplan_lite — это инновационная, легковесная и п
 - **Marketing:** Volume tier tracking and margin-capped promo-codes guarantee profitability margins.
 - **Background Integrity:** Autonomous CRON queues for pushing Best-Effort PENDING orders and pulling Partial Refunds directly into client user balances safely.
 
-## Next Milestone Goals (v2.0)
-- Planning B2B Extensibility Modules.
-- Integration of multi-lingual capabilities (Deferred from v1).
+## Next Milestone Goals (v3.0)
+- Advanced Analytics Dashboards (Churn prediction, advanced cohorts).
+- Enterprise Webhook Subscriptions.
 
 <details>
 <summary>Archived Concept Boundaries</summary>
@@ -28,28 +26,3 @@ SMMplan_lite — это инновационная, легковесная и п
 - [Сложная геймификация (NPS, Achievements, VIP Guardian)] — утяжеляют систему "Lite", отключены для ускорения и простоты.
 - [Telegram Bot для заказов] — Telegram будет использоваться исключительно как интерфейс для Support-тикетов, а не для каталога.
 </details>
-
-## Context
-
-Проект строится как "облегченная" и более умная версия энтерпрайз-проекта из папки `D:\Smmplan`.
-Запуск предполагается на собственном Ubuntu-сервере в Docker-окружении (монорепозиторий или микросервисы в контейнерах). Интеграция UI будет производиться с учетом современного стека, рефакторинга адаптивности из старого проекта с применением инструментов вроде Stitch MCP. Валюта проекта — исключительно RUB, наценки — от 300%.
-
-## Constraints
-
-- **[Tech Stack]**: Next.js 16.0.10, React 19.0.0, Tailwind CSS 4.0.0, ESLint 10.0.0 (Flat Config), TypeScript 5.7+ — строгий стандарт по глобальным User Rules.
-- **[Deployment]**: Docker на Ubuntu VPS — выбранный пользователем подход деплоя инфраструктуры.
-- **[Currency]**: Строго RUB во всех расчетах — упрощение биллинга и интерфейса.
-- **[Data Integrity]**: Предотвращение Race Conditions — недопустим "двойной возврат средств" (Admin refund + API Provider Refund). Идемпотентность статуса заказа обязательна.
-
-## Key Decisions
-
-<!-- Decisions that constrain future work. Add throughout project lifecycle. -->
-
-| Decision | Rationale | Outcome |
-|----------|-----------|---------|
-| Цена за 1 штуку, а не 1000 | Удобство восприятия клиентом, возможность скрыть гигантскую маржу за низкими абсолютными цифрами (копейками) | — Pending |
-| Отказ от Failover | Упрощение State Machine обработки заказов и повышение стабильности БД. | — Pending |
-| Комиссии берет на себя система | "Чистый" UX для клиента при пополнении, конверсия в платеж выше. | — Pending |
-
----
-*Last updated: 2026-04-16 after project initialization.*

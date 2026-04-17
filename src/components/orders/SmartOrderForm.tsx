@@ -2,8 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { analyzeUrl } from "@/actions/order/analyze-url";
+import { checkoutAction, calculatePriceAction } from "@/actions/order/checkout";
 import { IntelligencePlatform } from "@/services/analyzer/link-rules";
 import { DripFeedSettings } from "@/components/orders/DripFeedSettings";
+import { PricingResult } from "@/services/marketing.service";
+import { useRouter } from "next/navigation";
 
 // Эти моки будут заменены запросами в БД
 const MOCK_CATEGORIES = [
@@ -19,12 +22,24 @@ const MOCK_SERVICES = [
 ];
 
 export function SmartOrderForm() {
+  const router = useRouter();
   const [url, setUrl] = useState("");
   const [platform, setPlatform] = useState<IntelligencePlatform | null>(null);
   const [categoryId, setCategoryId] = useState("");
   const [serviceId, setServiceId] = useState("");
   const [quantity, setQuantity] = useState(100);
+  const [promoCode, setPromoCode] = useState("");
+  
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isOrdering, setIsOrdering] = useState(false);
+  const [orderError, setOrderError] = useState("");
+
+  const [pricing, setPricing] = useState<PricingResult | null>(null);
+
+  // Drip-Feed state
+  const [dripEnabled, setDripEnabled] = useState(false);
+  const [runs, setRuns] = useState(2);
+  const [interval, setInterval] = useState(60);
 
   // Debounced Analysis
   useEffect(() => {
@@ -53,12 +68,43 @@ export function SmartOrderForm() {
     ? MOCK_SERVICES.filter(s => s.categoryId === categoryId)
     : [];
 
+  // Live Pricing Calculation
+  useEffect(() => {
+    if (!serviceId || quantity < 10) return;
+    const fetchPrice = async () => {
+      const res = await calculatePriceAction(serviceId, quantity, promoCode);
+      if (res.success && res.data) {
+        setPricing(res.data);
+      } else {
+        setPricing(null);
+      }
+    };
+    const t = setTimeout(fetchPrice, 300);
+    return () => clearTimeout(t);
+  }, [serviceId, quantity, promoCode]);
+
   const selectedService = MOCK_SERVICES.find(s => s.id === serviceId);
 
-  // Расчет: (Rate / 1000) * Qty * Markup
-  const finalPrice = selectedService 
-    ? Math.ceil((selectedService.rate / 1000) * quantity * selectedService.markup * 100) / 100 
-    : 0;
+  const handleCheckout = async () => {
+    if (!serviceId || quantity < (selectedService?.minQty || 0)) return;
+    setIsOrdering(true);
+    setOrderError("");
+    
+    const finalRuns = dripEnabled ? runs : undefined;
+    const finalInterval = dripEnabled ? interval : undefined;
+
+    const res = await checkoutAction(serviceId, url, quantity, promoCode, finalRuns, finalInterval);
+    if (res.success) {
+      router.push("/dashboard/orders"); // Example redirect
+    } else {
+      if (res.error === "Unauthorized") {
+        router.push("/login?callbackUrl=/");
+      } else {
+        setOrderError(res.error || "Ошибка при создании заказа");
+      }
+    }
+    setIsOrdering(false);
+  };
 
   return (
     <div className="space-y-6">
@@ -136,20 +182,61 @@ export function SmartOrderForm() {
             <p className="text-xs text-zinc-500 mt-1">Минимум: {selectedService.minQty}</p>
           </div>
 
-          <div className="bg-zinc-50 p-6 rounded-2xl border border-zinc-200 flex justify-between items-center">
-             <div className="text-zinc-600">Итого к оплате:</div>
-             <div className="text-3xl font-bold text-zinc-900">{finalPrice} ₽</div>
+          <div className="bg-zinc-50 p-6 rounded-2xl border border-zinc-200 space-y-4">
+             <div>
+               <label className="block text-sm font-medium mb-2">Промокод (необязательно)</label>
+               <input 
+                 type="text" 
+                 value={promoCode}
+                 onChange={(e) => setPromoCode(e.target.value)}
+                 className="w-full rounded-xl border border-zinc-300 px-4 py-2 uppercase" 
+                 placeholder="PROMO2026" 
+               />
+             </div>
+             
+             <div className="flex justify-between items-center pt-2">
+               <div className="text-zinc-600">
+                 Итого к оплате:
+                 {pricing && pricing.discountPercent > 0 && (
+                   <span className="ml-2 inline-flex items-center rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
+                     Скидка -{pricing.discountPercent}% ({pricing.tier})
+                   </span>
+                 )}
+               </div>
+               <div className="text-3xl font-bold text-zinc-900">
+                 {pricing ? (pricing.totalCents / 100).toFixed(2) : "0.00"} ₽
+                 {pricing && pricing.discountPercent > 0 && (
+                   <div className="text-sm line-through text-zinc-400 absolute right-8 -mt-1 opacity-70">
+                     {(pricing.originalTotalCents / 100).toFixed(2)} ₽
+                   </div>
+                 )}
+               </div>
+             </div>
           </div>
 
-          <DripFeedSettings />
+          <DripFeedSettings 
+            enabled={dripEnabled}
+            setEnabled={setDripEnabled}
+            runs={runs}
+            setRuns={setRuns}
+            interval={interval}
+            setInterval={setInterval}
+          />
         </>
       )}
 
+      {orderError && (
+        <div className="bg-red-50 text-red-800 p-4 rounded-xl text-sm border border-red-200">
+          ❌ {orderError}
+        </div>
+      )}
+
       <button 
-        disabled={!selectedService || quantity < (selectedService?.minQty || 0)}
+        onClick={handleCheckout}
+        disabled={!selectedService || quantity < (selectedService?.minQty || 0) || isOrdering}
         className="w-full py-4 bg-zinc-900 text-white font-semibold rounded-xl hover:bg-zinc-800 disabled:opacity-50 transition-colors"
       >
-        Заказать
+        {isOrdering ? "Обработка..." : "Заказать"}
       </button>
     </div>
   );

@@ -1,0 +1,3 @@
+{
+  "/api/workers/sync-status/route": "app/api/workers/sync-status/route.js"
+}

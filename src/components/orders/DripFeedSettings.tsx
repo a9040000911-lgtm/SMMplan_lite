@@ -2,11 +2,18 @@
 
 import { useState } from "react";
 
-export function DripFeedSettings() {
-  const [enabled, setEnabled] = useState(false);
-  const [runs, setRuns] = useState(2);
-  const [interval, setInterval] = useState(60);
+interface DripFeedProps {
+  enabled: boolean;
+  setEnabled: (v: boolean) => void;
+  runs: number;
+  setRuns: (v: number) => void;
+  interval: number;
+  setInterval: (v: number) => void;
+}
 
+export function DripFeedSettings({
+  enabled, setEnabled, runs, setRuns, interval, setInterval
+}: DripFeedProps) {
   if (!enabled) {
     return (
       <button 

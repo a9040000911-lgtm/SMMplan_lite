@@ -1,0 +1,3 @@
+{
+  "/api/workers/process-drip/route": "app/api/workers/process-drip/route.js"
+}

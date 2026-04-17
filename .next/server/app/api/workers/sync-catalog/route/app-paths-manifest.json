@@ -1,0 +1,3 @@
+{
+  "/api/workers/sync-catalog/route": "app/api/workers/sync-catalog/route.js"
+}

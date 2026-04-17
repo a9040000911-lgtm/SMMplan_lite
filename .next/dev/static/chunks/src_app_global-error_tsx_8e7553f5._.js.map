@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///D:/Smmplan_lite/src/app/global-error.tsx"],"sourcesContent":["'use client';\n\nexport default function GlobalError({\n  error,\n  reset,\n}: {\n  error: Error & { digest?: string };\n  reset: () => void;\n}) {\n  return (\n    <html>\n      <body>\n        <h2>Что-то пошло не так!</h2>\n        <button onClick={() => reset()}>Попробовать снова</button>\n      </body>\n    </html>\n  );\n}\n"],"names":[],"mappings":";;;;;AAAA;;AAEe,SAAS,YAAY,EAClC,KAAK,EACL,KAAK,EAIN;IACC,qBACE,6LAAC;kBACC,cAAA,6LAAC;;8BACC,6LAAC;8BAAG;;;;;;8BACJ,6LAAC;oBAAO,SAAS,IAAM;8BAAS;;;;;;;;;;;;;;;;;AAIxC;KAfwB"}}]
+}

@@ -1,0 +1,19 @@
+# Smmplan_lite Local Dev Infrastructure
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: smmplan_lite_db
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=smmplan_lite
+    volumes:
+      - lite_postgres_data:/var/lib/postgresql/data
+    ports:
+      # Expose on 5433 to prevent conflict with Smmplan legacy db
+      - "5433:5432"
+
+volumes:
+  lite_postgres_data:

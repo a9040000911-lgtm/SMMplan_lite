@@ -1,0 +1,342 @@
+{
+  "node": {
+    "40653336602180e5f8fef09263f7c5ad48ec0520ee": {
+      "workers": {
+        "app/dashboard/new-order/page": {
+          "moduleId": 78141,
+          "async": false,
+          "exportedName": "analyzeUrl",
+          "filename": "src/actions/order/analyze-url.ts"
+        },
+        "app/page": {
+          "moduleId": 34388,
+          "async": false,
+          "exportedName": "analyzeUrl",
+          "filename": "src/actions/order/analyze-url.ts"
+        }
+      },
+      "layer": {
+        "app/dashboard/new-order/page": "action-browser",
+        "app/page": "action-browser"
+      },
+      "filename": "src/actions/order/analyze-url.ts",
+      "exportedName": "analyzeUrl"
+    },
+    "7ea87fff2249b7c369db10a2ec606ff56b2ab2536c": {
+      "workers": {
+        "app/dashboard/new-order/page": {
+          "moduleId": 78141,
+          "async": false,
+          "exportedName": "checkoutAction",
+          "filename": "src/actions/order/checkout.ts"
+        },
+        "app/page": {
+          "moduleId": 34388,
+          "async": false,
+          "exportedName": "checkoutAction",
+          "filename": "src/actions/order/checkout.ts"
+        }
+      },
+      "layer": {
+        "app/dashboard/new-order/page": "action-browser",
+        "app/page": "action-browser"
+      },
+      "filename": "src/actions/order/checkout.ts",
+      "exportedName": "checkoutAction"
+    },
+    "70c932a2c3b1131774b05c35e10b3b2cc6f9b64eae": {
+      "workers": {
+        "app/dashboard/new-order/page": {
+          "moduleId": 78141,
+          "async": false,
+          "exportedName": "calculatePriceAction",
+          "filename": "src/actions/order/checkout.ts"
+        },
+        "app/page": {
+          "moduleId": 34388,
+          "async": false,
+          "exportedName": "calculatePriceAction",
+          "filename": "src/actions/order/checkout.ts"
+        }
+      },
+      "layer": {
+        "app/dashboard/new-order/page": "action-browser",
+        "app/page": "action-browser"
+      },
+      "filename": "src/actions/order/checkout.ts",
+      "exportedName": "calculatePriceAction"
+    },
+    "6002ad5f20439a17d428a46858dcebb62db026c7ad": {
+      "workers": {
+        "app/(auth)/login/page": {
+          "moduleId": 65340,
+          "async": false,
+          "exportedName": "requestMagicLink",
+          "filename": "src/actions/auth/request-magic-link.ts"
+        }
+      },
+      "layer": {
+        "app/(auth)/login/page": "action-browser"
+      },
+      "filename": "src/actions/auth/request-magic-link.ts",
+      "exportedName": "requestMagicLink"
+    },
+    "40094fb9aebd121c054eb14a9d7146c681cd799baf": {
+      "workers": {
+        "app/admin/finance/page": {
+          "moduleId": 86117,
+          "async": false,
+          "exportedName": "updateSystemSettings",
+          "filename": "src/actions/finance/settings.ts"
+        }
+      },
+      "layer": {
+        "app/admin/finance/page": "rsc"
+      },
+      "filename": "src/actions/finance/settings.ts",
+      "exportedName": "updateSystemSettings"
+    },
+    "4041bd273e4aae8f0ab7299ca1ecce8829439a4cd2": {
+      "workers": {
+        "app/admin/pages/[slug]/page": {
+          "moduleId": 12204,
+          "async": false,
+          "exportedName": "savePage",
+          "filename": "src/actions/cms/pages.ts"
+        }
+      },
+      "layer": {
+        "app/admin/pages/[slug]/page": "rsc"
+      },
+      "filename": "src/actions/cms/pages.ts",
+      "exportedName": "savePage"
+    },
+    "4006a82c91166ce92d37f689c0075bff1216ee1afd": {
+      "workers": {
+        "app/admin/settings/page": {
+          "moduleId": 64,
+          "async": false,
+          "exportedName": "updateGlobalSettings",
+          "filename": "src/actions/admin/settings.ts"
+        }
+      },
+      "layer": {
+        "app/admin/settings/page": "rsc"
+      },
+      "filename": "src/actions/admin/settings.ts",
+      "exportedName": "updateGlobalSettings"
+    },
+    "40760c491e1be76a993df17a8cf9f092662ca5d6ea": {
+      "workers": {
+        "app/admin/settings/page": {
+          "moduleId": 64,
+          "async": false,
+          "exportedName": "upsertProvider",
+          "filename": "src/actions/admin/settings.ts"
+        }
+      },
+      "layer": {
+        "app/admin/settings/page": "rsc"
+      },
+      "filename": "src/actions/admin/settings.ts",
+      "exportedName": "upsertProvider"
+    },
+    "40ab04e075d2a4f1b16f5a6ed6f9fdf5affd9677c0": {
+      "workers": {
+        "app/admin/settings/page": {
+          "moduleId": 64,
+          "async": false,
+          "exportedName": "updateUserRole",
+          "filename": "src/actions/admin/settings.ts"
+        }
+      },
+      "layer": {
+        "app/admin/settings/page": "rsc"
+      },
+      "filename": "src/actions/admin/settings.ts",
+      "exportedName": "updateUserRole"
+    },
+    "400f6d48dfcac35eff1752c5fede96823f68157d8e": {
+      "workers": {
+        "app/admin/support/[id]/page": {
+          "moduleId": 38943,
+          "async": false,
+          "exportedName": "createTicket",
+          "filename": "src/actions/support/ticket.ts"
+        },
+        "app/admin/tickets/[id]/page": {
+          "moduleId": 37821,
+          "async": false,
+          "exportedName": "createTicket",
+          "filename": "src/actions/support/ticket.ts"
+        },
+        "app/dashboard/support/[id]/page": {
+          "moduleId": 5707,
+          "async": false,
+          "exportedName": "createTicket",
+          "filename": "src/actions/support/ticket.ts"
+        },
+        "app/dashboard/support/page": {
+          "moduleId": 51808,
+          "async": false,
+          "exportedName": "createTicket",
+          "filename": "src/actions/support/ticket.ts"
+        },
+        "app/dashboard/tickets/[id]/page": {
+          "moduleId": 39083,
+          "async": false,
+          "exportedName": "createTicket",
+          "filename": "src/actions/support/ticket.ts"
+        },
+        "app/dashboard/tickets/page": {
+          "moduleId": 52061,
+          "async": false,
+          "exportedName": "createTicket",
+          "filename": "src/actions/support/ticket.ts"
+        }
+      },
+      "layer": {
+        "app/admin/support/[id]/page": "rsc",
+        "app/admin/tickets/[id]/page": "rsc",
+        "app/dashboard/support/[id]/page": "rsc",
+        "app/dashboard/support/page": "rsc",
+        "app/dashboard/tickets/[id]/page": "rsc",
+        "app/dashboard/tickets/page": "rsc"
+      },
+      "filename": "src/actions/support/ticket.ts",
+      "exportedName": "createTicket"
+    },
+    "4021d23a2dd32c6c4e2adb67c7dd0373a1adc30a1e": {
+      "workers": {
+        "app/admin/support/[id]/page": {
+          "moduleId": 38943,
+          "async": false,
+          "exportedName": "adminReplyTicket",
+          "filename": "src/actions/support/ticket.ts"
+        },
+        "app/admin/tickets/[id]/page": {
+          "moduleId": 37821,
+          "async": false,
+          "exportedName": "adminReplyTicket",
+          "filename": "src/actions/support/ticket.ts"
+        },
+        "app/dashboard/support/[id]/page": {
+          "moduleId": 5707,
+          "async": false,
+          "exportedName": "adminReplyTicket",
+          "filename": "src/actions/support/ticket.ts"
+        },
+        "app/dashboard/support/page": {
+          "moduleId": 51808,
+          "async": false,
+          "exportedName": "adminReplyTicket",
+          "filename": "src/actions/support/ticket.ts"
+        },
+        "app/dashboard/tickets/[id]/page": {
+          "moduleId": 39083,
+          "async": false,
+          "exportedName": "adminReplyTicket",
+          "filename": "src/actions/support/ticket.ts"
+        },
+        "app/dashboard/tickets/page": {
+          "moduleId": 52061,
+          "async": false,
+          "exportedName": "adminReplyTicket",
+          "filename": "src/actions/support/ticket.ts"
+        }
+      },
+      "layer": {
+        "app/admin/support/[id]/page": "rsc",
+        "app/admin/tickets/[id]/page": "rsc",
+        "app/dashboard/support/[id]/page": "rsc",
+        "app/dashboard/support/page": "rsc",
+        "app/dashboard/tickets/[id]/page": "rsc",
+        "app/dashboard/tickets/page": "rsc"
+      },
+      "filename": "src/actions/support/ticket.ts",
+      "exportedName": "adminReplyTicket"
+    },
+    "40e4a28cb9c928e0b7663b37be42b59ee0db70ebc1": {
+      "workers": {
+        "app/admin/support/[id]/page": {
+          "moduleId": 38943,
+          "async": false,
+          "exportedName": "addTicketMessage",
+          "filename": "src/actions/support/ticket.ts"
+        },
+        "app/admin/tickets/[id]/page": {
+          "moduleId": 37821,
+          "async": false,
+          "exportedName": "addTicketMessage",
+          "filename": "src/actions/support/ticket.ts"
+        },
+        "app/dashboard/support/[id]/page": {
+          "moduleId": 5707,
+          "async": false,
+          "exportedName": "addTicketMessage",
+          "filename": "src/actions/support/ticket.ts"
+        },
+        "app/dashboard/support/page": {
+          "moduleId": 51808,
+          "async": false,
+          "exportedName": "addTicketMessage",
+          "filename": "src/actions/support/ticket.ts"
+        },
+        "app/dashboard/tickets/[id]/page": {
+          "moduleId": 39083,
+          "async": false,
+          "exportedName": "addTicketMessage",
+          "filename": "src/actions/support/ticket.ts"
+        },
+        "app/dashboard/tickets/page": {
+          "moduleId": 52061,
+          "async": false,
+          "exportedName": "addTicketMessage",
+          "filename": "src/actions/support/ticket.ts"
+        }
+      },
+      "layer": {
+        "app/admin/support/[id]/page": "rsc",
+        "app/admin/tickets/[id]/page": "rsc",
+        "app/dashboard/support/[id]/page": "rsc",
+        "app/dashboard/support/page": "rsc",
+        "app/dashboard/tickets/[id]/page": "rsc",
+        "app/dashboard/tickets/page": "rsc"
+      },
+      "filename": "src/actions/support/ticket.ts",
+      "exportedName": "addTicketMessage"
+    },
+    "0020ddbcc20aeac2cdc95cbdf30be97f7dbc429dc5": {
+      "workers": {
+        "app/dashboard/settings/api/page": {
+          "moduleId": 85717,
+          "async": false,
+          "exportedName": "generateApiKey",
+          "filename": "src/actions/auth/api-key.ts"
+        }
+      },
+      "layer": {
+        "app/dashboard/settings/api/page": "action-browser"
+      },
+      "filename": "src/actions/auth/api-key.ts",
+      "exportedName": "generateApiKey"
+    },
+    "006ae95ae26df6f10bdfdf319217d7584cfc1972f4": {
+      "workers": {
+        "app/dashboard/settings/api/page": {
+          "moduleId": 85717,
+          "async": false,
+          "exportedName": "revokeApiKey",
+          "filename": "src/actions/auth/api-key.ts"
+        }
+      },
+      "layer": {
+        "app/dashboard/settings/api/page": "action-browser"
+      },
+      "filename": "src/actions/auth/api-key.ts",
+      "exportedName": "revokeApiKey"
+    }
+  },
+  "edge": {},
+  "encryptionKey": "1eGN3fLKTiUFJz4/cLZiTdQrRsFCyhwtxRKgbNN95Z4="
+}

@@ -45,3 +45,29 @@ export async function sendMagicLink(email: string, token: string) {
     html: htmlContent,
   });
 }
+
+export async function sendMail(email: string, subject: string, htmlContent: string) {
+  if (!process.env.SMTP_HOST) {
+    console.warn('⚠️ SMTP_HOST is not set. Email printed to console only.');
+    console.log(`[EMAIL to ${email}] ${subject}:`);
+    console.log(htmlContent);
+    return;
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT) || 465,
+    secure: true,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+
+  await transporter.sendMail({
+    from: `"SMMplan Support" <${process.env.SMTP_USER}>`,
+    to: email,
+    subject,
+    html: htmlContent,
+  });
+}

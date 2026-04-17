@@ -1,0 +1,20 @@
+{
+  "node": {
+    "60a33ab67cc3eaf2797961648a2d7c237a3964b085": {
+      "workers": {
+        "app/(auth)/login/page": {
+          "moduleId": "[project]/.next-internal/server/app/(auth)/login/page/actions.js { ACTIONS_MODULE0 => \"[project]/src/actions/auth/request-magic-link.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "requestMagicLink",
+          "filename": "src/actions/auth/request-magic-link.ts"
+        }
+      },
+      "layer": {
+        "app/(auth)/login/page": "action-browser"
+      },
+      "exportedName": "requestMagicLink",
+      "filename": "src/actions/auth/request-magic-link.ts"
+    }
+  },
+  "edge": {}
+}

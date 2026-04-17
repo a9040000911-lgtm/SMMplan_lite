@@ -1,0 +1,50 @@
+{
+  "node": {
+    "4006a82c91166ce92d37f689c0075bff1216ee1afd": {
+      "workers": {
+        "app/admin/settings/page": {
+          "moduleId": 64,
+          "async": false,
+          "exportedName": "updateGlobalSettings",
+          "filename": "src/actions/admin/settings.ts"
+        }
+      },
+      "layer": {
+        "app/admin/settings/page": "rsc"
+      },
+      "exportedName": "updateGlobalSettings",
+      "filename": "src/actions/admin/settings.ts"
+    },
+    "40760c491e1be76a993df17a8cf9f092662ca5d6ea": {
+      "workers": {
+        "app/admin/settings/page": {
+          "moduleId": 64,
+          "async": false,
+          "exportedName": "upsertProvider",
+          "filename": "src/actions/admin/settings.ts"
+        }
+      },
+      "layer": {
+        "app/admin/settings/page": "rsc"
+      },
+      "exportedName": "upsertProvider",
+      "filename": "src/actions/admin/settings.ts"
+    },
+    "40ab04e075d2a4f1b16f5a6ed6f9fdf5affd9677c0": {
+      "workers": {
+        "app/admin/settings/page": {
+          "moduleId": 64,
+          "async": false,
+          "exportedName": "updateUserRole",
+          "filename": "src/actions/admin/settings.ts"
+        }
+      },
+      "layer": {
+        "app/admin/settings/page": "rsc"
+      },
+      "exportedName": "updateUserRole",
+      "filename": "src/actions/admin/settings.ts"
+    }
+  },
+  "edge": {}
+}

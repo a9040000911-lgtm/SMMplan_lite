@@ -3,20 +3,48 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  role      String   @default("USER")
-  balance   Float    @default(0.0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id               String   @id @default(cuid())
+  email            String   @unique
+  role             String   @default("USER")
+  balance          Int      @default(0)
+  totalSpent       Int      @default(0) // Lifetime value in Cents
+  personalDiscount Float    @default(0.0) // Manual discount override in %, max 100
+  apiKey           String?  @unique
+  referralCode     String?  @unique
+  referredById     String?
+  referralBalance  Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   authTokens AuthToken[]
   sessions   Session[]
+  orders     Order[]
+  payments   Payment[]
+  tickets    Ticket[]
+  auditLogs  AuditLog[]
+
+  // Referrals
+  referredBy User?        @relation("ReferralTree", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals  User[]       @relation("ReferralTree")
+  commissions Commission[] @relation("ReferredCommissions")
+}
+
+model PromoCode {
+  id              String    @id @default(cuid())
+  code            String    @unique
+  discountPercent Float     // 10.0 = 10%
+  maxUses         Int       @default(1)
+  uses            Int       @default(0)
+  isActive        Boolean   @default(true)
+  expiresAt       DateTime?
+  createdAt       DateTime  @default(now())
+  
+  @@index([code])
 }
 
 model AuthToken {
@@ -64,8 +92,163 @@ model Service {
   markup      Float     @default(3.0) // 300% markup
   minQty      Int       @default(10)
   maxQty      Int       @default(100000)
+  externalId  String?   // mapped ID to provider
+  isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  orders      Order[]
+
   @@index([categoryId])
 }
+
+model Provider {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  apiUrl      String
+  apiKey      String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Order {
+  id           String   @id @default(cuid())
+  userId       String
+  serviceId    String
+  externalId   String?  // ID from provider (like VexBoost)
+  link         String
+  quantity     Int
+  status       String   @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, PARTIAL, CANCELED, ERROR
+  remains      Int      @default(0)   // Outstanding amount to deliver
+  charge       Int      // price paid by user in Cents
+  providerCost Int      // exact cost from provider in Cents
+  error        String?  // Error message from provider API
+  retryCount   Int      @default(0) // Safe API Backoff mechanism
+  isTest       Boolean  @default(false) // Isolation flag for mock environment
+  
+  // Drip-Feed specifics
+  isDripFeed   Boolean  @default(false)
+  runs         Int?
+  interval     Int?     // Minutes between runs
+  currentRun   Int      @default(0)
+  nextRunAt    DateTime?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  service      Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  amount      Int      // amount in Cents
+  currency    String   @default("RUB")
+  status      String   @default("PENDING") // PENDING, SUCCEEDED, CANCELED
+  gatewayId   String?  @unique // yookassa payment id
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([gatewayId])
+}
+
+model SystemSettings {
+  id              String   @id @default("global")
+  isTestMode      Boolean  @default(false)
+  taxRate         Float    @default(6.0) // % tax rate
+  opexMonthly     Int      @default(0) // Fixed operational expenses sum in Cents
+  maintenanceMode Boolean  @default(false)
+  siteName        String   @default("Smmplan")
+  siteDescription String   @default("")
+
+  updatedAt       DateTime @updatedAt
+}
+
+model Ticket {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject   String
+  status    String   @default("OPEN") // OPEN, PENDING, CLOSED
+
+  messages  TicketMessage[]
+  
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model TicketMessage {
+  id        String   @id @default(cuid())
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender    String   // USER, STAFF, INTERNAL
+  text      String
+  mediaUrl  String?  // relative path to uploaded file
+  mediaType String?  // "image", "audio", "video"
+  
+  createdAt DateTime @default(now())
+
+  @@index([ticketId])
+}
+
+model Page {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  title     String
+  content   String
+  
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action    String
+  details   String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Commission {
+  id          String   @id @default(cuid())
+  orderId     String
+  referrerId  String
+  amount      Int      // in Cents
+  status      String   @default("PENDING") // PENDING, PAID, REJECTED
+  
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  referrer    User     @relation("ReferredCommissions", fields: [referrerId], references: [id], onDelete: Cascade)
+  
+  @@index([referrerId])
+}
+
+// Security: Rate Limit
+model RateLimit {
+  id        String   @id @default(cuid())
+  ip        String
+  endpoint  String
+  hits      Int      @default(1)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  
+  @@unique([ip, endpoint])
+  @@index([expiresAt])
+}
+
+

@@ -1,0 +1,50 @@
+{
+  "node": {
+    "40653336602180e5f8fef09263f7c5ad48ec0520ee": {
+      "workers": {
+        "app/page": {
+          "moduleId": 34388,
+          "async": false,
+          "exportedName": "analyzeUrl",
+          "filename": "src/actions/order/analyze-url.ts"
+        }
+      },
+      "layer": {
+        "app/page": "action-browser"
+      },
+      "exportedName": "analyzeUrl",
+      "filename": "src/actions/order/analyze-url.ts"
+    },
+    "7ea87fff2249b7c369db10a2ec606ff56b2ab2536c": {
+      "workers": {
+        "app/page": {
+          "moduleId": 34388,
+          "async": false,
+          "exportedName": "checkoutAction",
+          "filename": "src/actions/order/checkout.ts"
+        }
+      },
+      "layer": {
+        "app/page": "action-browser"
+      },
+      "exportedName": "checkoutAction",
+      "filename": "src/actions/order/checkout.ts"
+    },
+    "70c932a2c3b1131774b05c35e10b3b2cc6f9b64eae": {
+      "workers": {
+        "app/page": {
+          "moduleId": 34388,
+          "async": false,
+          "exportedName": "calculatePriceAction",
+          "filename": "src/actions/order/checkout.ts"
+        }
+      },
+      "layer": {
+        "app/page": "action-browser"
+      },
+      "exportedName": "calculatePriceAction",
+      "filename": "src/actions/order/checkout.ts"
+    }
+  },
+  "edge": {}
+}
