@@ -201,6 +201,11 @@ model SystemSettings {
   siteName        String   @default("Smmplan")
   siteDescription String   @default("")
 
+  // Payment Gateways (Secrets are AES-256-GCM encrypted in DB)
+  yookassaShopId    String?
+  yookassaSecretKey String?
+  cryptoBotToken    String?
+
   updatedAt       DateTime @updatedAt
 }
 

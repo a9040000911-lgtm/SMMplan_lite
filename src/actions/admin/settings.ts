@@ -4,6 +4,7 @@ import { verifySession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { settingsService } from '@/services/admin/settings.service';
 import { revalidatePath } from 'next/cache';
+import { EncryptionService } from '@/lib/encryption';
 
 async function requireAdmin() {
   const session = await verifySession();
@@ -63,7 +64,19 @@ export async function updateGlobalSettings(formData: FormData) {
   const siteName = formData.get('siteName') as string || 'Smmplan';
   const siteDescription = formData.get('siteDescription') as string || '';
 
-  await settingsService.updateSystemSettings({ maintenanceMode, siteName, siteDescription });
+  // Payment Gateways
+  const yookassaShopId = formData.get('yookassaShopId') as string | null;
+  const rawYookassaSecret = formData.get('yookassaSecretKey') as string | null;
+  const rawCryptoBotToken = formData.get('cryptoBotToken') as string | null;
+
+  const dataToUpdate: any = { maintenanceMode, siteName, siteDescription };
+
+  // Only update secrets if they are provided (prevent overwriting with empty)
+  if (yookassaShopId) dataToUpdate.yookassaShopId = yookassaShopId;
+  if (rawYookassaSecret) dataToUpdate.yookassaSecretKey = EncryptionService.encrypt(rawYookassaSecret);
+  if (rawCryptoBotToken) dataToUpdate.cryptoBotToken = EncryptionService.encrypt(rawCryptoBotToken);
+
+  await settingsService.updateSystemSettings(dataToUpdate);
   await db.auditLog.create({
     data: {
       userId: session.userId,

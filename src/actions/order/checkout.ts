@@ -134,9 +134,11 @@ export async function checkoutAction(
       paymentUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/dev/mock-payment?paymentId=${result.paymentId}`;
       remoteGatewayId = `dev_${result.paymentId}`; // mock ID
     } else if (gateway === 'yookassa') {
-      const shopId = process.env.YOOKASSA_SHOP_ID;
-      const secretKey = process.env.YOOKASSA_SECRET_KEY;
-      if (!shopId || !secretKey) throw new Error('YooKassa is not configured');
+      // Wait, we need the secrets. We should fetch them at the top of the gateway specific block.
+      const secrets = await SettingsManager.getPaymentSecrets();
+      const shopId = secrets.yookassaShopId;
+      const secretKey = secrets.yookassaSecretKey;
+      if (!shopId || !secretKey) throw new Error('YooKassa is not configured in Admin Panel');
 
       const authHeader = 'Basic ' + Buffer.from(`${shopId}:${secretKey}`).toString('base64');
       const payload = {
@@ -167,8 +169,9 @@ export async function checkoutAction(
       remoteGatewayId = data.id;
 
     } else if (gateway === 'cryptobot') {
-      const cryptoToken = process.env.CRYPTO_BOT_TOKEN;
-      if (!cryptoToken) throw new Error('CryptoBot is not configured');
+      const secrets = await SettingsManager.getPaymentSecrets();
+      const cryptoToken = secrets.cryptoBotToken;
+      if (!cryptoToken) throw new Error('CryptoBot is not configured in Admin Panel');
 
       const resp = await fetch('https://pay.crypt.bot/api/createInvoice', {
         method: 'POST',

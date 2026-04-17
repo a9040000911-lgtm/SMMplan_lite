@@ -1,5 +1,12 @@
 import { db } from "@/lib/db";
 import { SystemSettings } from "@prisma/client";
+import { EncryptionService } from "./encryption";
+
+export interface DecryptedPaymentSecrets {
+  yookassaShopId: string | null;
+  yookassaSecretKey: string | null;
+  cryptoBotToken: string | null;
+}
 
 /**
  * Controller to manage and fetch global System Settings (Singletons).
@@ -28,6 +35,18 @@ export class SettingsManager {
     }
 
     return settings;
+  }
+
+  /**
+   * Fetches the DB settings and securely decrypts the payment API keys.
+   */
+  static async getPaymentSecrets(): Promise<DecryptedPaymentSecrets> {
+     const settings = await this.get();
+     return {
+       yookassaShopId: settings.yookassaShopId, // Public ID, unencrypted
+       yookassaSecretKey: settings.yookassaSecretKey ? EncryptionService.decrypt(settings.yookassaSecretKey) : null,
+       cryptoBotToken: settings.cryptoBotToken ? EncryptionService.decrypt(settings.cryptoBotToken) : null
+     };
   }
 
   static async isTestMode(): Promise<boolean> {

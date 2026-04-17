@@ -59,6 +59,53 @@ export default async function AdminSettingsPage() {
         </CardContent>
       </Card>
 
+      {/* ── Payment Gateways ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Payment Gateways (B2C Checkout)</CardTitle>
+          <CardDescription>Configure YooKassa and CryptoBot. Secrets are transparently AES-256-GCM encrypted in the DB.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={updateGlobalSettings} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="col-span-full text-sm font-semibold text-slate-800 bg-slate-50 p-2 rounded">
+              YooKassa (Fiat)
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="yookassaShopId">Shop ID</Label>
+              <Input id="yookassaShopId" name="yookassaShopId" defaultValue={settings.yookassaShopId || ''} placeholder="e.g. 123456" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="yookassaSecretKey">Secret Key</Label>
+              <Input 
+                id="yookassaSecretKey" 
+                name="yookassaSecretKey" 
+                type="password" 
+                placeholder={settings.yookassaSecretKey ? "•••••••••••••••• (Encrypted in DB)" : "Not configured"} 
+              />
+              <p className="text-xs text-slate-400">Leave blank to keep current key</p>
+            </div>
+
+            <div className="col-span-full text-sm font-semibold text-slate-800 bg-slate-50 p-2 rounded mt-4">
+              CryptoBot (Crypto)
+            </div>
+            <div className="space-y-2 col-span-full">
+              <Label htmlFor="cryptoBotToken">API Token</Label>
+              <Input 
+                id="cryptoBotToken" 
+                name="cryptoBotToken" 
+                type="password" 
+                placeholder={settings.cryptoBotToken ? "•••••••••••••••• (Encrypted in DB)" : "Not configured"} 
+              />
+              <p className="text-xs text-slate-400">Leave blank to keep current key</p>
+            </div>
+
+            <div className="col-span-full">
+              <Button type="submit">Save Payment Gateways</Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
       {/* ── User Management ── */}
       <Card>
         <CardHeader>

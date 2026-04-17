@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { db } from '@/lib/db';
 import { paymentService } from '@/services/financial/payment.service';
+import { SettingsManager } from '@/lib/settings';
 
 export async function POST(request: Request) {
   try {
@@ -11,7 +12,8 @@ export async function POST(request: Request) {
     }
 
     const payload = await request.text();
-    const CRYPTO_BOT_TOKEN = process.env.CRYPTO_BOT_TOKEN || 'test_token';
+    const secrets = await SettingsManager.getPaymentSecrets();
+    const CRYPTO_BOT_TOKEN = secrets.cryptoBotToken || 'test_token';
 
     // Verify CryptoBot Signature
     const secret = crypto.createHash('sha256').update(CRYPTO_BOT_TOKEN).digest();

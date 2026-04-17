@@ -63,6 +63,9 @@ export class SettingsService {
     maintenanceMode?: boolean;
     siteName?: string;
     siteDescription?: string;
+    yookassaShopId?: string;
+    yookassaSecretKey?: string;
+    cryptoBotToken?: string;
   }) {
     return db.systemSettings.upsert({
       where: { id: 'global' },
