@@ -1,163 +1,152 @@
 'use server';
 
-import { verifySession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { marketingService, PricingResult } from '@/services/marketing.service';
-import { providerService } from '@/services/providers/provider.service';
 import { RateLimitService } from '@/services/core/rate-limit.service';
 import { SettingsManager } from '@/lib/settings';
 
+/**
+ * Calculates price for display on the order form (no auth required).
+ */
 export async function calculatePriceAction(
   serviceId: string,
   quantity: number,
   promoCodeStr?: string
 ): Promise<{ success: boolean; data?: PricingResult; error?: string }> {
   try {
-    const session = await verifySession().catch(() => null);
-
     const result = await marketingService.calculatePrice(
-      session?.userId || null,
+      null, // No user context needed for price preview
       serviceId,
       quantity,
       promoCodeStr
     );
-
     return { success: true, data: result };
   } catch (error: any) {
     return { success: false, error: error.message };
   }
 }
 
+/**
+ * Pay-Per-Order Checkout Flow:
+ * 1. Calculate price
+ * 2. Create Order as AWAITING_PAYMENT
+ * 3. Create Payment as PENDING linked to Order
+ * 4. Return payment data for frontend redirect to YooKassa/CryptoBot
+ */
 export async function checkoutAction(
   serviceId: string,
   link: string,
   quantity: number,
+  email: string,
   promoCodeStr?: string,
   runs?: number,
-  interval?: number
-): Promise<{ success: boolean; orderId?: string; error?: string }> {
+  interval?: number,
+  gateway: string = 'yookassa'
+): Promise<{ 
+  success: boolean; 
+  orderId?: string; 
+  paymentId?: string;
+  paymentUrl?: string;
+  error?: string 
+}> {
   try {
-    const session = await verifySession();
-    if (!session) {
-      return { success: false, error: 'Unauthorized' };
-    }
-
-    return await checkoutCore(session.userId, serviceId, link, quantity, promoCodeStr, runs, interval);
-  } catch (error: any) {
-    if (error.message === 'INSUFFICIENT_FUNDS') {
-      return { success: false, error: 'Недостаточно средств на балансе' };
-    }
-    return { success: false, error: error.message };
-  }
-}
-
-/** 
- * Internal core checkout logic decoupled from session context 
- * so it can be safely called by B2B handlers.
- */
-export async function checkoutCore(
-  userId: string,
-  serviceId: string,
-  link: string,
-  quantity: number,
-  promoCodeStr?: string,
-  runs?: number,
-  interval?: number
-): Promise<{ success: boolean; orderId?: string; error?: string }> {
-  try {
-    // 0. Protect against API spam via Redis/Postgres RateLimiter
+    // 0. Rate limit
     const isAllowed = await RateLimitService.check("checkoutCore", 15, 60);
     if (!isAllowed) {
-       return { success: false, error: "Слишком много запросов. Попробуйте через минуту." };
+      return { success: false, error: "Слишком много запросов. Попробуйте через минуту." };
     }
 
-    const isTestModeActive = await SettingsManager.isTestMode();
+    // 1. Validate email
+    if (!email || !email.includes('@')) {
+      return { success: false, error: "Введите корректный email" };
+    }
 
-    // 1. Double check and calculate final price
-    const pricing = await marketingService.calculatePrice(userId, serviceId, quantity, promoCodeStr);
+    // 2. Validate service exists
+    const service = await db.service.findUnique({ where: { id: serviceId } });
+    if (!service || !service.isActive) {
+      return { success: false, error: "Услуга не найдена или неактивна" };
+    }
 
-    // 2. Wrap creation in transaction to prevent concurrency balance attacks
-    const orderId = await db.$transaction(async (tx) => {
-      // Re-fetch user lock inside transaction to ensure precise balance
-      const lockUser = await tx.user.findUnique({
-        where: { id: userId }
-      });
+    if (!service.externalId) {
+      return { success: false, error: "Услуга не привязана к провайдеру" };
+    }
 
-      if (!lockUser || lockUser.balance < pricing.totalCents) {
-        throw new Error('INSUFFICIENT_FUNDS');
-      }
+    const isTestMode = await SettingsManager.isTestMode();
 
-      // Deduct balance & increment totalSpent
-      await tx.user.update({
-        where: { id: userId },
-        data: { 
-          balance: { decrement: pricing.totalCents },
-          totalSpent: { increment: pricing.totalCents } 
-        }
-      });
+    // 3. Calculate price
+    const pricing = await marketingService.calculatePrice(null, serviceId, quantity, promoCodeStr);
 
-      // Consume Promo Code
-      if (promoCodeStr) {
-        await marketingService.consumePromoCode(tx, promoCodeStr);
-      }
+    // 4. Find or create user by email
+    let user = await db.user.findUnique({ where: { email: email.toLowerCase() } });
+    if (!user) {
+      user = await db.user.create({ data: { email: email.toLowerCase() } });
+    }
 
-      // Referral Commission Logic (5% of Net Profit)
-      if (lockUser.referredById) {
-        const netProfitCents = pricing.totalCents - pricing.providerCostCents;
-        if (netProfitCents > 0) {
-          const commissionAmount = Math.floor(netProfitCents * 0.05); // 5%
-          if (commissionAmount > 0) {
-            await tx.commission.create({
-              data: {
-                orderId: 'TBD', // Will update below
-                referrerId: lockUser.referredById,
-                amount: commissionAmount,
-                status: 'PENDING'
-              }
-            });
-          }
-        }
-      }
-
+    // 5. Create Order + Payment atomically
+    const result = await db.$transaction(async (tx) => {
       // Create Order
       const newOrder = await tx.order.create({
         data: {
-          userId,
+          userId: user.id,
           serviceId,
           link,
           quantity,
-          status: 'PENDING',
+          email: email.toLowerCase(),
+          status: 'AWAITING_PAYMENT',
           charge: pricing.totalCents,
           providerCost: pricing.providerCostCents,
           remains: quantity,
           runs,
           interval,
-          isTest: isTestModeActive,
+          isTest: isTestMode,
           isDripFeed: (runs && runs > 1) ? true : false,
           nextRunAt: (runs && runs > 1) ? new Date() : null
         }
       });
 
-      // Update Commission with actual OrderId if it was created
-      if (lockUser.referredById) {
-         await tx.commission.updateMany({
-           where: { orderId: 'TBD', referrerId: lockUser.referredById },
-           data: { orderId: newOrder.id }
-         });
+      // Consume Promo Code if used
+      if (promoCodeStr) {
+        await marketingService.consumePromoCode(tx, promoCodeStr);
       }
 
-      return newOrder.id;
+      // Create linked Payment
+      const payment = await tx.payment.create({
+        data: {
+          userId: user.id,
+          orderId: newOrder.id,
+          amount: pricing.totalCents,
+          currency: 'RUB',
+          status: 'PENDING',
+          gateway
+        }
+      });
+
+      return { orderId: newOrder.id, paymentId: payment.id };
     });
 
-    // 3. Trigger Loyalty/Promo Automation async (don't await so we don't slow down checkout UX)
-    import('@/services/users/promo-automation.service').then(m => {
-      m.PromoAutomationService.checkAndIssueLoyalty(userId);
-    }).catch(console.error);
+    // 6. Generate payment URL (gateway-specific)
+    const amountRub = (pricing.totalCents / 100).toFixed(2);
+    let paymentUrl = '';
 
-    // 4. Background worker will handle provisioning.
-    // Checkout is now instantaneous and fully decoupled.
-    return { success: true, orderId };
+    if (isTestMode) {
+      // In test mode, return a mock payment URL that will auto-confirm
+      paymentUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/dev/mock-payment?paymentId=${result.paymentId}`;
+    } else if (gateway === 'yookassa') {
+      // YooKassa: in production, you'd call their API to create a payment
+      // POST https://api.yookassa.ru/v3/payments
+      // For now, we store the paymentId and the frontend redirects to the widget
+      paymentUrl = `https://yookassa.ru/checkout?amount=${amountRub}&orderId=${result.orderId}`;
+      console.warn(`[Checkout] YooKassa payment URL is a placeholder. Integrate real API.`);
+    }
+
+    return { 
+      success: true, 
+      orderId: result.orderId, 
+      paymentId: result.paymentId,
+      paymentUrl
+    };
   } catch (error: any) {
-    throw error;
+    console.error('[Checkout] Error:', error);
+    return { success: false, error: error.message };
   }
 }

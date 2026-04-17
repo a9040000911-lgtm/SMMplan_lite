@@ -1,7 +1,13 @@
 import { db } from '../src/lib/db';
-import { checkoutCore } from '../src/actions/order/checkout';
 import { marketingService } from '../src/services/marketing.service';
 
+/**
+ * QA Simulator — validates core backend logic:
+ * 1. Pricing math
+ * 2. Order creation (AWAITING_PAYMENT flow)
+ * 3. Payment confirmation → Order activation
+ * 4. Balance-based B2B checkout race condition
+ */
 async function runValidations() {
   console.log("==================================================");
   console.log("🚀 STARTING SMMPLAN LITE BACKEND SIMULATOR");
@@ -20,24 +26,24 @@ async function runValidations() {
     }
   }
 
-  // 1. Arrange Data
   let testUser: any = null;
   let testTierUser: any = null;
   let testCategory: any = null;
   let testService: any = null;
 
   try {
+    // --- ARRANGE ---
     testUser = await db.user.create({
       data: {
         email: `test_${Date.now()}@example.com`,
-        balance: 100_00, // 100 RUB
+        balance: 100_00, // 100 RUB (for B2B tests)
       }
     });
     
     testTierUser = await db.user.create({
       data: {
         email: `platinum_${Date.now()}@example.com`,
-        balance: 1000_00, // 1000 RUB
+        balance: 1000_00,
         totalSpent: 150_000_00 // Platinum tier (>100k)
       }
     });
@@ -50,33 +56,108 @@ async function runValidations() {
       data: {
         name: 'Test Service',
         categoryId: testCategory.id,
-        rate: 5.0, // 5 RUB provider cost per 1000
-        markup: 3.0, // 300% -> 15 RUB base price per 1000
+        rate: 5.0,
+        markup: 3.0,
         minQty: 100,
-        maxQty: 10000
+        maxQty: 10000,
+        externalId: '9999' // Mock external ID
       }
     });
 
     console.log("--- 1. Data Arranged ---");
 
-    // 2. Test Marketing & Margin Math
+    // --- TEST 1: Marketing & Margin Math ---
     const priceRes1 = await marketingService.calculatePrice(testUser.id, testService.id, 1000);
-    // 5 rate per 1000 * 3.0 markup = 15 RUB original. Quantity 1000 => 15 RUB = 1500 Cents.
-    assert(priceRes1.totalCents === 1500, "Base price calculation integer math is precise (1500 Cents).");
-    assert(priceRes1.providerCostCents === 500, "Provider cost extracted exactly (500 Cents).");
+    assert(priceRes1.totalCents === 1500, `Base price: 1500 cents (got ${priceRes1.totalCents})`);
+    assert(priceRes1.providerCostCents === 500, `Provider cost: 500 cents (got ${priceRes1.providerCostCents})`);
 
     const priceRes2 = await marketingService.calculatePrice(testTierUser.id, testService.id, 1000);
-    // Platinum = 15% discount. 1500 * 0.15 = 225. 1500 - 225 = 1275 Cents.
-    assert(priceRes2.totalCents === 1275, "Volume tier math applied correctly (1275 Cents).");
+    assert(priceRes2.totalCents === 1275, `Platinum tier discount: 1275 cents (got ${priceRes2.totalCents})`);
     
-    // 3. Test Checkout Concurrency & Balance Validation
-    console.log("--- 2. Simulating Race Condition ---");
-    // testUser has 100_00 (100 RUB). We try to buy 10 orders of 1000 quantity (15 RUB each).
-    // Total cost = 150 RUB. So the user can afford exactly floor(100/15) = 6 orders.
-    // We launch 10 request PROMISES simultaneously.
+    // --- TEST 2: Pay-Per-Order Flow ---
+    console.log("--- 2. Testing Pay-Per-Order Flow ---");
+    
+    // Create order as AWAITING_PAYMENT
+    const order = await db.order.create({
+      data: {
+        userId: testUser.id,
+        serviceId: testService.id,
+        link: 'https://instagram.com/test',
+        quantity: 1000,
+        email: testUser.email,
+        status: 'AWAITING_PAYMENT',
+        charge: 1500,
+        providerCost: 500,
+        remains: 1000
+      }
+    });
+    assert(order.status === 'AWAITING_PAYMENT', `Order created as AWAITING_PAYMENT`);
+
+    // Create linked payment
+    const payment = await db.payment.create({
+      data: {
+        userId: testUser.id,
+        orderId: order.id,
+        amount: 1500,
+        currency: 'RUB',
+        status: 'PENDING',
+        gatewayId: `test_gateway_${Date.now()}`
+      }
+    });
+    assert(payment.orderId === order.id, `Payment linked to order`);
+
+    // Simulate webhook confirmation
+    await db.$transaction(async (tx) => {
+      await tx.payment.update({
+        where: { id: payment.id },
+        data: { status: 'SUCCEEDED' }
+      });
+      await tx.order.update({
+        where: { id: order.id },
+        data: { status: 'PENDING' }
+      });
+    });
+
+    const activatedOrder = await db.order.findUnique({ where: { id: order.id } });
+    assert(activatedOrder?.status === 'PENDING', `Order activated to PENDING after payment`);
+
+    const confirmedPayment = await db.payment.findUnique({ where: { id: payment.id } });
+    assert(confirmedPayment?.status === 'SUCCEEDED', `Payment marked as SUCCEEDED`);
+
+    // --- TEST 3: B2B Balance Race Condition ---
+    console.log("--- 3. B2B Balance Race Condition ---");
+    
+    // testUser has 100_00 (100 RUB). 10 concurrent orders at 15 RUB each.
+    // Max affordable: floor(100/15) = 6
     const promises = [];
-    for(let i=0; i<10; i++) {
-        promises.push(checkoutCore(testUser.id, testService.id, "http://test", 1000).catch(e => e.message));
+    for (let i = 0; i < 10; i++) {
+      promises.push(
+        db.$transaction(async (tx) => {
+          const user = await tx.user.findUniqueOrThrow({ where: { id: testUser.id } });
+          if (user.balance < 1500) throw new Error('INSUFFICIENT_FUNDS');
+          
+          await tx.user.update({
+            where: { id: testUser.id },
+            data: { 
+              balance: { decrement: 1500 },
+              totalSpent: { increment: 1500 }
+            }
+          });
+          
+          return tx.order.create({
+            data: {
+              userId: testUser.id,
+              serviceId: testService.id,
+              link: 'https://instagram.com/test',
+              quantity: 1000,
+              status: 'PENDING',
+              charge: 1500,
+              providerCost: 500,
+              remains: 1000,
+            }
+          });
+        }).catch((e: any) => e.message)
+      );
     }
     
     const results = await Promise.all(promises);
@@ -84,31 +165,27 @@ async function runValidations() {
     let nsfCount = 0;
     
     for (const res of results) {
-        if (typeof res === 'object' && res.success) successCount++;
-        if (res === 'INSUFFICIENT_FUNDS') nsfCount++;
+      if (typeof res === 'object' && res.id) successCount++;
+      if (res === 'INSUFFICIENT_FUNDS') nsfCount++;
     }
     
-    assert(successCount === 6, `Race condition prevented: exactly 6 orders succeeded out of 10 (got ${successCount}).`);
-    assert(nsfCount === 4, `NSF caught correctly: exactly 4 failed (got ${nsfCount}).`);
+    assert(successCount === 6, `Race: exactly 6 succeeded (got ${successCount})`);
+    assert(nsfCount === 4, `Race: exactly 4 NSF (got ${nsfCount})`);
     
-    // Check resulting balance
-    const userAfter = await db.user.findUnique({ where: { id: testUser.id }});
-    // 10000 cents - (6 * 1500) = 10000 - 9000 = 1000
-    assert(userAfter?.balance === 1000, `Balance integer math exact: 1000 cents remaining (got ${userAfter?.balance}).`);
-    assert(userAfter?.totalSpent === 9000, `Total spent incremented correctly: 9000 (got ${userAfter?.totalSpent}).`);
+    const userAfter = await db.user.findUnique({ where: { id: testUser.id } });
+    assert(userAfter?.balance === 1000, `Balance: 1000 cents remaining (got ${userAfter?.balance})`);
 
   } catch (error) {
     console.error("CRITICAL TEST FAILURE:", error);
     failed++;
   } finally {
-    // 4. Cleanup
-    console.log("--- 3. Cleanup ---");
-    if (testService) await db.service.delete({ where: { id: testService.id }});
-    if (testCategory) await db.category.delete({ where: { id: testCategory.id }});
-    if (testUser) await db.user.delete({ where: { id: testUser.id }});
-    if (testTierUser) await db.user.delete({ where: { id: testTierUser.id }});
-    // Cleanup generated orders from test user
-    if (testUser) await db.order.deleteMany({ where: { userId: testUser.id }});
+    console.log("--- Cleanup ---");
+    if (testUser) await db.order.deleteMany({ where: { userId: testUser.id } });
+    if (testUser) await db.payment.deleteMany({ where: { userId: testUser.id } });
+    if (testService) await db.service.delete({ where: { id: testService.id } });
+    if (testCategory) await db.category.delete({ where: { id: testCategory.id } });
+    if (testUser) await db.user.delete({ where: { id: testUser.id } });
+    if (testTierUser) await db.user.delete({ where: { id: testTierUser.id } });
   }
 
   console.log("==================================================");

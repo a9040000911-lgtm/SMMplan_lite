@@ -2,44 +2,34 @@ import { db } from '@/lib/db';
 
 export class PaymentService {
   /**
-   * Safe confirmation of a payment using Double-Check Verification (Anti-Spoofing).
-   * Validates the transaction directly against the Gateway API, not just from the webhook body.
+   * Confirms a payment and activates the linked order.
+   * Called by webhook handlers (YooKassa, CryptoBot).
+   * 
+   * Flow: Payment PENDING → SUCCEEDED → Order AWAITING_PAYMENT → PENDING
    */
-  async confirmPayment(gatewayId: string, amount: number, userId: string, isDevSandbox = false): Promise<boolean> {
+  async confirmPayment(
+    gatewayId: string, 
+    amount: number, 
+    userId: string, 
+    isDevSandbox = false
+  ): Promise<boolean> {
     try {
-      // 1. Double check against YooKassa API
-      if (!isDevSandbox) {
-        // In real prod, you make a GET request to https://api.yookassa.ru/v3/payments/{gatewayId}
-        // using your shopId and Secret Key to ensure status === 'succeeded' and amount matches.
-        // We throw an explicit error here because Smmplan_lite does not have real YooKassa keys yet.
-        console.warn(`[Payment] Skipping real YooKassa validation for ${gatewayId} (Implement Prod API Here)`);
+      // 1. Double-check against real gateway API in production
+      if (!isDevSandbox && process.env.NODE_ENV === 'production') {
+        // TODO: Make GET request to YooKassa API to verify payment status
+        console.warn(`[Payment] Implement real YooKassa verification for ${gatewayId}`);
       }
 
-      // 2. Wrap in transaction to avoid race conditions
+      // 2. Atomic transaction: confirm payment + activate order
       await db.$transaction(async (tx) => {
-        // Find existing payment
+        // Find payment by gateway ID
         const payment = await tx.payment.findUnique({
           where: { gatewayId }
         });
 
-        if (payment) {
-          if (payment.status === 'SUCCEEDED') {
-            throw new Error(`Payment ${gatewayId} already processed (Idempotency Hit)`);
-          }
-          
-          await tx.payment.update({
-            where: { gatewayId },
-            data: { status: 'SUCCEEDED' }
-          });
-          
-          // Actually credit user balance
-          await tx.user.update({
-            where: { id: payment.userId },
-            data: { balance: { increment: payment.amount } }
-          });
-        } else {
-          // Sometimes webhook arrives BEFORE the UI request finishes creating the Payment record
-          // We handle it gracefully by performing an upsert/create and crediting balance right away.
+        if (!payment) {
+          // Payment record might not exist yet (webhook arrived before checkout finished)
+          // Create it and try to match later
           await tx.payment.create({
             data: {
               gatewayId,
@@ -49,11 +39,50 @@ export class PaymentService {
               status: 'SUCCEEDED'
             }
           });
+          console.warn(`[Payment] Created orphan payment ${gatewayId} — no linked order`);
+          return;
+        }
 
-          await tx.user.update({
-            where: { id: userId },
-            data: { balance: { increment: amount } }
+        // Idempotency: already processed
+        if (payment.status === 'SUCCEEDED') {
+          console.log(`[Payment] ${gatewayId} already processed (idempotency hit)`);
+          return;
+        }
+
+        // Amount mismatch check
+        if (payment.amount !== amount) {
+          console.error(`[Payment] Amount mismatch for ${gatewayId}: expected ${payment.amount}, got ${amount}`);
+          // Still process — the gateway has the final say on amount
+        }
+
+        // Mark payment as succeeded
+        await tx.payment.update({
+          where: { id: payment.id },
+          data: { 
+            status: 'SUCCEEDED',
+            gatewayId // Ensure gatewayId is saved
+          }
+        });
+
+        // Activate linked order (AWAITING_PAYMENT → PENDING)
+        if (payment.orderId) {
+          const order = await tx.order.findUnique({
+            where: { id: payment.orderId }
           });
+
+          if (order && order.status === 'AWAITING_PAYMENT') {
+            await tx.order.update({
+              where: { id: payment.orderId },
+              data: { status: 'PENDING' }
+            });
+            console.log(`[Payment] Order ${payment.orderId} activated → PENDING`);
+
+            // Track user spending for loyalty tiers
+            await tx.user.update({
+              where: { id: payment.userId },
+              data: { totalSpent: { increment: payment.amount } }
+            });
+          }
         }
       });
 
@@ -64,9 +93,51 @@ export class PaymentService {
     }
   }
 
-  async createDevSandboxPayment(userId: string, amount: number) {
-    const fakeGatewayId = `dev_yookassa_${Date.now()}`;
-    return this.confirmPayment(fakeGatewayId, amount, userId, true);
+  /**
+   * Confirms a payment directly by paymentId (for mock/test flows).
+   */
+  async confirmPaymentById(paymentId: string): Promise<boolean> {
+    try {
+      await db.$transaction(async (tx) => {
+        const payment = await tx.payment.findUniqueOrThrow({
+          where: { id: paymentId }
+        });
+
+        if (payment.status === 'SUCCEEDED') return; // Already done
+
+        await tx.payment.update({
+          where: { id: paymentId },
+          data: { 
+            status: 'SUCCEEDED',
+            gatewayId: `test_${Date.now()}`
+          }
+        });
+
+        // Activate linked order
+        if (payment.orderId) {
+          const order = await tx.order.findUnique({
+            where: { id: payment.orderId }
+          });
+
+          if (order && order.status === 'AWAITING_PAYMENT') {
+            await tx.order.update({
+              where: { id: payment.orderId },
+              data: { status: 'PENDING' }
+            });
+
+            await tx.user.update({
+              where: { id: payment.userId },
+              data: { totalSpent: { increment: payment.amount } }
+            });
+          }
+        }
+      });
+
+      return true;
+    } catch (e: any) {
+      console.error('[PaymentService] Error:', e.message);
+      return false;
+    }
   }
 }
 

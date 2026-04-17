@@ -29,6 +29,7 @@ export function SmartOrderForm() {
   const [serviceId, setServiceId] = useState("");
   const [quantity, setQuantity] = useState(100);
   const [promoCode, setPromoCode] = useState("");
+  const [email, setEmail] = useState("");
   
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isOrdering, setIsOrdering] = useState(false);
@@ -93,15 +94,13 @@ export function SmartOrderForm() {
     const finalRuns = dripEnabled ? runs : undefined;
     const finalInterval = dripEnabled ? interval : undefined;
 
-    const res = await checkoutAction(serviceId, url, quantity, promoCode, finalRuns, finalInterval);
-    if (res.success) {
-      router.push("/dashboard/orders"); // Example redirect
+    const res = await checkoutAction(serviceId, url, quantity, email, promoCode || undefined, finalRuns, finalInterval);
+    if (res.success && res.paymentUrl) {
+      window.location.href = res.paymentUrl; // Redirect to payment gateway
+    } else if (res.success) {
+      router.push("/dashboard/orders");
     } else {
-      if (res.error === "Unauthorized") {
-        router.push("/login?callbackUrl=/");
-      } else {
-        setOrderError(res.error || "Ошибка при создании заказа");
-      }
+      setOrderError(res.error || "Ошибка при создании заказа");
     }
     setIsOrdering(false);
   };

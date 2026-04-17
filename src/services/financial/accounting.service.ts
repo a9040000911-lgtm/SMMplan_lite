@@ -53,7 +53,7 @@ export class AccountingService {
     const orders = await db.order.findMany({
       where: {
         ...whereClause,
-        status: { notIn: ['PENDING', 'ERROR'] }
+        status: { notIn: ['AWAITING_PAYMENT', 'PENDING', 'ERROR'] }
       }
     });
 

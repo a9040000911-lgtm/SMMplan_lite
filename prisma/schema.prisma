@@ -119,13 +119,14 @@ model Order {
   externalId   String?  // ID from provider (like VexBoost)
   link         String
   quantity     Int
-  status       String   @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, PARTIAL, CANCELED, ERROR
+  status       String   @default("AWAITING_PAYMENT") // AWAITING_PAYMENT, PENDING, IN_PROGRESS, COMPLETED, PARTIAL, CANCELED, ERROR
   remains      Int      @default(0)   // Outstanding amount to deliver
   charge       Int      // price paid by user in Cents
   providerCost Int      // exact cost from provider in Cents
   error        String?  // Error message from provider API
   retryCount   Int      @default(0) // Safe API Backoff mechanism
   isTest       Boolean  @default(false) // Isolation flag for mock environment
+  email        String?  // Contact email for guest / notification
   
   // Drip-Feed specifics
   isDripFeed   Boolean  @default(false)
@@ -139,6 +140,7 @@ model Order {
 
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   service      Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  payment      Payment? // One-to-one: the payment that funds this order
 
   @@index([userId])
   @@index([status])
@@ -149,16 +151,21 @@ model Payment {
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
+  orderId     String?  @unique // Links this payment to a specific order
+  order       Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
   amount      Int      // amount in Cents
   currency    String   @default("RUB")
   status      String   @default("PENDING") // PENDING, SUCCEEDED, CANCELED
   gatewayId   String?  @unique // yookassa payment id
+  gateway     String   @default("yookassa") // yookassa, cryptobot, test
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@index([userId])
   @@index([gatewayId])
+  @@index([orderId])
 }
 
 model SystemSettings {

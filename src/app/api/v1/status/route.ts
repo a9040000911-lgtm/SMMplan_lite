@@ -4,12 +4,13 @@ import { verifyB2BKey } from '@/lib/b2b-auth';
 
 // Mapping internal statuses to standard SMM API status strings
 const statusMap: Record<string, string> = {
+  'AWAITING_PAYMENT': 'Pending',
   'PENDING': 'Pending',
   'IN_PROGRESS': 'In progress',
   'COMPLETED': 'Completed',
   'PARTIAL': 'Partial',
   'CANCELED': 'Canceled',
-  'ERROR': 'Fail' // or Canceled
+  'ERROR': 'Fail'
 };
 
 function mapInternalStatus(internal: string) {
