@@ -124,19 +124,86 @@ export async function checkoutAction(
       return { orderId: newOrder.id, paymentId: payment.id };
     });
 
-    // 6. Generate payment URL (gateway-specific)
+    // 6. Generate payment URL (gateway-specific API calls)
     const amountRub = (pricing.totalCents / 100).toFixed(2);
     let paymentUrl = '';
+    let remoteGatewayId = '';
+    const successUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/success`;
 
     if (isTestMode) {
-      // In test mode, return a mock payment URL that will auto-confirm
       paymentUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/dev/mock-payment?paymentId=${result.paymentId}`;
+      remoteGatewayId = `dev_${result.paymentId}`; // mock ID
     } else if (gateway === 'yookassa') {
-      // YooKassa: in production, you'd call their API to create a payment
-      // POST https://api.yookassa.ru/v3/payments
-      // For now, we store the paymentId and the frontend redirects to the widget
-      paymentUrl = `https://yookassa.ru/checkout?amount=${amountRub}&orderId=${result.orderId}`;
-      console.warn(`[Checkout] YooKassa payment URL is a placeholder. Integrate real API.`);
+      const shopId = process.env.YOOKASSA_SHOP_ID;
+      const secretKey = process.env.YOOKASSA_SECRET_KEY;
+      if (!shopId || !secretKey) throw new Error('YooKassa is not configured');
+
+      const authHeader = 'Basic ' + Buffer.from(`${shopId}:${secretKey}`).toString('base64');
+      const payload = {
+        amount: { value: amountRub, currency: 'RUB' },
+        capture: true,
+        confirmation: { type: 'redirect', return_url: successUrl },
+        description: `Заказ Smmplan #${result.orderId}`,
+        metadata: { paymentId: result.paymentId, orderId: result.orderId, userId: user.id }
+      };
+
+      const resp = await fetch('https://api.yookassa.ru/v3/payments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': authHeader,
+          'Idempotence-Key': result.paymentId
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!resp.ok) {
+        console.error('[Checkout] YooKassa API Error:', await resp.text());
+        throw new Error('Ошибка шлюза YooKassa');
+      }
+
+      const data = await resp.json();
+      paymentUrl = data.confirmation.confirmation_url;
+      remoteGatewayId = data.id;
+
+    } else if (gateway === 'cryptobot') {
+      const cryptoToken = process.env.CRYPTO_BOT_TOKEN;
+      if (!cryptoToken) throw new Error('CryptoBot is not configured');
+
+      const resp = await fetch('https://pay.crypt.bot/api/createInvoice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Crypto-Pay-API-Token': cryptoToken
+        },
+        body: JSON.stringify({
+          currency_type: 'fiat', // Allow paying in TON but amount specified in RUB
+          fiat: 'RUB',
+          amount: amountRub,
+          description: `Заказ Smmplan #${result.orderId}`,
+          hidden_message: `Ваш заказ: ${result.orderId}`,
+          payload: result.paymentId
+        })
+      });
+
+      if (!resp.ok) {
+        console.error('[Checkout] CryptoBot API Error:', await resp.text());
+        throw new Error('Ошибка шлюза CryptoBot');
+      }
+
+      const data = await resp.json();
+      if (!data.ok) throw new Error('CryptoBot returned error: ' + JSON.stringify(data.error));
+      
+      paymentUrl = data.result.pay_url;
+      remoteGatewayId = data.result.invoice_id.toString();
+    }
+
+    // 7. Store the remoteGatewayId on the Payment record so Webhooks can match it
+    if (remoteGatewayId) {
+      await db.payment.update({
+        where: { id: result.paymentId },
+        data: { gatewayId: remoteGatewayId }
+      });
     }
 
     return { 
