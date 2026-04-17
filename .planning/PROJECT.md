@@ -8,40 +8,26 @@ SMMplan_lite — это инновационная, легковесная и п
 
 Бесшовный и моментальный опыт покупки (Smart URL Matching) для пользователя и абсолютная финансовая прозрачность (Бухгалтерский модуль, предотвращение двойных возвратов, парциальные возвраты) для владельца.
 
-## Requirements
+## Current State: v1.0 (SHIPPED)
+- **Foundation & Core:** Next.js 16 App Router perfectly integrated with Prisma and SQLite. Magic Link stateless JWT authentication deployed.
+- **Smart Analytics:** Smart URL Matching seamlessly identifies links and provides precise internal service catalogs. UI dynamically calculates complex unit metrics.
+- **Financial Gateway:** Full-width internal integer math (Cents) blocks mathematical drift. Transactions locked against race-conditions (`db.$transaction()`).
+- **Support & CMS:** Omnichannel support tickets with macro capabilities. Safe HTML Tiptap headless CMS for static pages.
+- **Marketing:** Volume tier tracking and margin-capped promo-codes guarantee profitability margins.
+- **Background Integrity:** Autonomous CRON queues for pushing Best-Effort PENDING orders and pulling Partial Refunds directly into client user balances safely.
 
-### Validated
+## Next Milestone Goals (v2.0)
+- Planning B2B Extensibility Modules.
+- Integration of multi-lingual capabilities (Deferred from v1).
 
-<!-- Shipped and confirmed valuable. -->
-
-- ✓ [Smart Analyzer Module] — существующая комплексная бизнес-логика скопирована из D:\Smmplan.
-- ✓ [Provider Connectors] — базовые классы и API-коннекторы для работы с поставщиками (Vexboost, Stream-promotion) готовы к интеграции.
-- ✓ [SMTP Module] — рабочие настройки SMTP для отправки системных уведомлений.
-
-### Active
-
-<!-- Current scope. Building toward these. -->
-
-- [ ] Интеграция Умного Парсера ссылок в новую витрину на Next.js 16.
-- [ ] Система авторизации (режим РФ 2026): Auto-login после оплаты + возврат по Magic Link на почту.
-- [ ] Модуль ценообразования за 1 штуку (вместо 1000) со сложным математическим округлением "до красивых цифр".
-- [ ] Бухгалтерский блок: дашборды для SEO, Support, Admin. Учет COGS, Gross/Net Profit, комиссий шлюзов и расчета налогов.
-- [ ] Оформление логики Частичных возвратов (Partial Refunds API -> точный расчет возврата $ на баланс клиента).
-- [ ] Интеграция YooKassa и Crypto-шлюзов с логикой поглощения комиссии панелью.
-- [ ] Разработка новой CMS для контентных страниц (надежной, в отличие от предыдущей версии).
-- [ ] Омниканальный Support Dashboard: макросы, история заказов в чате, комментарии для коллег, баны/варны и подключение Telegram-бота только для техподдержки.
-- [ ] Внутренний контролируемый Drip-feed и парсинг Массовых заказов.
-- [ ] Маркетинговые фичи: Промокоды, накопительная программа лояльности (без сложной геймификации).
-- [ ] Интернационализация (i18n): закладка структуры под Английский язык (изначально только RU).
-
-### Out of Scope
-
-<!-- Explicit boundaries. Includes reasoning to prevent re-adding. -->
+<details>
+<summary>Archived Concept Boundaries</summary>
 
 - [Oauth Social Login (Google/Telegram)] — юридические и технические риски блокировок на территории РФ в 2026 году.
 - [Automated API Failover] — автоматическое переключение провайдеров на лету отключается из-за нестабильности (используем только отмену заказов).
 - [Сложная геймификация (NPS, Achievements, VIP Guardian)] — утяжеляют систему "Lite", отключены для ускорения и простоты.
 - [Telegram Bot для заказов] — Telegram будет использоваться исключительно как интерфейс для Support-тикетов, а не для каталога.
+</details>
 
 ## Context
 
