@@ -85,6 +85,7 @@ model Category {
 
 model Service {
   id          String    @id @default(cuid())
+  numericId   Int       @unique @default(autoincrement())
   name        String
   categoryId  String
   category    Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
@@ -93,6 +94,12 @@ model Service {
   minQty      Int       @default(10)
   maxQty      Int       @default(100000)
   externalId  String?   // mapped ID to provider
+  
+  // API v2 feature flags
+  isDripFeedEnabled Boolean @default(true)
+  isRefillEnabled   Boolean @default(false)
+  isCancelEnabled   Boolean @default(false)
+
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -114,6 +121,7 @@ model Provider {
 
 model Order {
   id           String   @id @default(cuid())
+  numericId    Int      @unique @default(autoincrement())
   userId       String
   serviceId    String
   externalId   String?  // ID from provider (like VexBoost)
@@ -141,8 +149,24 @@ model Order {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   service      Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
   payment      Payment? // One-to-one: the payment that funds this order
+  refills      Refill[]
 
   @@index([userId])
+  @@index([status])
+}
+
+model Refill {
+  id           String   @id @default(cuid())
+  numericId    Int      @unique @default(autoincrement())
+  orderId      String
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status       String   @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, REJECTED, ERROR
+  externalId   String?  // Refill ID from the provider
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@index([orderId])
   @@index([status])
 }
 
