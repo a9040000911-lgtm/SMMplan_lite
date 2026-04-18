@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation';
 import { verifySession } from '@/lib/session';
 import { db } from '@/lib/db';
 import Link from 'next/link';
+import { Toaster } from '@/components/ui/sonner';
+import { CommandMenu } from '@/components/admin/command-menu';
 
 // RBAC: Allowed roles for admin panel access
 const ADMIN_ROLES = ['OWNER', 'ADMIN', 'MANAGER', 'SUPPORT'];
@@ -16,6 +18,9 @@ const ADMIN_TABS = [
   { href: '/admin/catalog',   label: '🛒 Каталог',    roles: ['OWNER', 'ADMIN', 'MANAGER'] },
   { href: '/admin/tickets',   label: '💬 Тикеты',     roles: ['OWNER', 'ADMIN', 'MANAGER', 'SUPPORT'] },
   { href: '/admin/finance',   label: '💳 Финансы',    roles: ['OWNER', 'ADMIN'] },
+  { href: '/admin/providers', label: '🔌 Провайдеры', roles: ['OWNER', 'ADMIN'] },
+  { href: '/admin/marketing', label: '🎁 Маркетинг',  roles: ['OWNER', 'ADMIN', 'MANAGER'] },
+  { href: '/admin/pages',     label: '📝 Страницы',   roles: ['OWNER', 'ADMIN', 'MANAGER'] },
   { href: '/admin/settings',  label: '⚙ Настройки',  roles: ['OWNER', 'ADMIN'] },
 ];
 
@@ -54,6 +59,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           </span>
         </div>
         <nav className="px-4 py-2 space-y-1">
+          <CommandMenu />
           {visibleTabs.map(tab => (
             <Link
               key={tab.href}
@@ -77,6 +83,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
       <main className="flex-1 overflow-x-hidden overflow-y-auto bg-slate-50 p-6 md:p-10">
         {children}
       </main>
+      <Toaster position="top-right" richColors />
     </div>
   );
 }

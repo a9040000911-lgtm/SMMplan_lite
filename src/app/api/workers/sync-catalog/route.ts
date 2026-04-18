@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { providerService } from '@/services/providers/provider.service';
 import { sendAdminAlert } from '@/lib/notifications';
+import {
+  SYNC_JITTER_THRESHOLD,
+  SYNC_ANOMALY_THRESHOLD,
+} from '@/lib/financial-constants';
 
 export async function GET(request: Request) {
   // 1. Verify Authentication 
@@ -32,6 +36,8 @@ export async function GET(request: Request) {
     let updatedCnt = 0;
     let disabledCnt = 0;
     let unchangedCnt = 0;
+    let jitteredCnt = 0;
+    const anomalies: string[] = [];
 
     for (const localService of internalServices) {
       if (!localService.externalId) continue;
@@ -44,42 +50,106 @@ export async function GET(request: Request) {
         if (localService.isActive) {
           await db.service.update({
             where: { id: localService.id },
-            data: { isActive: false }
+            data: { isActive: false, lastSeenAt: null }
           });
           disabledCnt++;
         }
       } else {
         // Provider Service Exists. Check if rate changed.
         const newRate = parseFloat(externalMeta.rate);
+        const oldRate = localService.rate;
         
-        if (localService.rate !== newRate) {
-           await db.service.update({
-             where: { id: localService.id },
-             data: { 
-               rate: newRate, 
-               isActive: true // Make sure it's active if it was previously deactivated
-             }
-           });
-           updatedCnt++;
+        // ─── ANTI-JITTER: Ignore rate changes smaller than 5% ────────
+        // This prevents the storefront from "flickering" due to micro-fluctuations
+        // in provider pricing (often caused by USD→RUB conversion noise).
+        if (oldRate > 0 && newRate > 0) {
+          const changePercent = Math.abs((newRate - oldRate) / oldRate);
+          
+          // ─── ANOMALY DETECTION: Alert on large price swings ────────
+          if (changePercent >= SYNC_ANOMALY_THRESHOLD) {
+            const direction = newRate > oldRate ? '📈' : '📉';
+            anomalies.push(
+              `${direction} #${localService.numericId} "${localService.name}": $${oldRate.toFixed(4)} → $${newRate.toFixed(4)} (${(changePercent * 100).toFixed(0)}%)`
+            );
+          }
+          
+          if (changePercent < SYNC_JITTER_THRESHOLD) {
+            // Micro-change — update lastSeenAt but DO NOT change storefront rate.
+            await db.service.update({
+              where: { id: localService.id },
+              data: { lastSeenAt: new Date() }
+            });
+            jitteredCnt++;
+            continue;
+          }
+        }
+
+        // ─── AUTO-DECREASE GUARD ─────────────────────────────────────
+        // By default, prices only go UP during sync. If the provider lowers
+        // their rate, we preserve our current (higher) rate to protect margins.
+        // Admin can manually lower prices when they choose to.
+        const isIncrease = newRate > oldRate;
+        const isDecrease = newRate < oldRate;
+
+        if (isDecrease) {
+          // Provider lowered price — DON'T lower our rate automatically.
+          // Just update metadata so admin can see the delta.
+          await db.service.update({
+            where: { id: localService.id },
+            data: { 
+              lastSeenAt: new Date(),
+              // Store the new provider rate in dataHash field as indicator
+              // that a manual review is needed
+              dataHash: `pending_decrease:${newRate.toFixed(6)}`
+            }
+          });
+          unchangedCnt++;
+          continue;
+        }
+
+        if (isIncrease || localService.rate !== newRate) {
+          // Price INCREASED or was never set — update to protect from selling at loss
+          await db.service.update({
+            where: { id: localService.id },
+            data: { 
+              rate: newRate, 
+              lastSeenAt: new Date(),
+              dataHash: null, // Clear any pending decrease
+              isActive: true  // Re-activate if it was previously deactivated
+            }
+          });
+          updatedCnt++;
         } else {
-           // Rate is the same, but it might have been disabled previously
-           if (!localService.isActive) {
-             await db.service.update({
-               where: { id: localService.id },
-               data: { isActive: true }
-             });
-             updatedCnt++;
-           } else {
-             unchangedCnt++;
-           }
+          // Rate is the same — just ensure it's active
+          if (!localService.isActive) {
+            await db.service.update({
+              where: { id: localService.id },
+              data: { isActive: true, lastSeenAt: new Date() }
+            });
+            updatedCnt++;
+          } else {
+            await db.service.update({
+              where: { id: localService.id },
+              data: { lastSeenAt: new Date() }
+            });
+            unchangedCnt++;
+          }
         }
       }
+    }
+
+    // ─── ANOMALY ALERTS ──────────────────────────────────────────
+    if (anomalies.length > 0) {
+      sendAdminAlert(
+        `⚡ Обнаружены аномальные изменения цен (${anomalies.length}):\n\n${anomalies.join('\n')}`,
+        'WARNING'
+      );
     }
 
     // Alert if services were disabled
     if (disabledCnt > 0) {
       sendAdminAlert(
-        `Catalog Sync: ${disabledCnt} услуг деактивировано (провайдер удалил)\nОбновлено: ${updatedCnt}, Без изменений: ${unchangedCnt}`,
+        `Catalog Sync: ${disabledCnt} услуг деактивировано (провайдер удалил)\nОбновлено: ${updatedCnt}, Anti-Jitter: ${jitteredCnt}, Без изменений: ${unchangedCnt}`,
         'WARNING'
       );
     }
@@ -90,7 +160,9 @@ export async function GET(request: Request) {
         totalInternalChecked: internalServices.length,
         updatedRatesOrActivation: updatedCnt,
         disabledMissingServices: disabledCnt,
-        unchanged: unchangedCnt
+        jitteredSmallChanges: jitteredCnt,
+        unchanged: unchangedCnt,
+        anomaliesDetected: anomalies.length,
       }
     });
 

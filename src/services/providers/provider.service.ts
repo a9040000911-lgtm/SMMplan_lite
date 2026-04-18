@@ -5,6 +5,8 @@ import { db } from '@/lib/db';
 
 import { MockProvider } from './mock.provider';
 import { SettingsManager } from '@/lib/settings';
+import { UniversalProvider } from './universal.provider';
+import { CryptoService } from '@/lib/crypto';
 
 export class ProviderService {
   /**
@@ -24,13 +26,16 @@ export class ProviderService {
       return new MockProvider();
     }
 
+    // Decrypt the API Key before passing it to the provider
+    const decryptedConfig = { ...config, apiKey: CryptoService.decrypt(config.apiKey) };
+
     // In smmplan it uses the URL or Name to decide. We will use Name for simplicity.
-    if (config.name.toLowerCase().includes('vexboost')) {
-      return new VexboostProvider(config);
+    if (decryptedConfig.name.toLowerCase().includes('vexboost')) {
+      return new VexboostProvider(decryptedConfig);
     }
     
-    // Future integrations (e.g. JustAnotherPanelProvider) will go here
-    throw new Error(`Unsupported provider: ${config.name}`);
+    // Fallback to Universal Provider for all generic panels (PerfectPanel, JAP, etc.)
+    return new UniversalProvider(decryptedConfig);
   }
 
   /**

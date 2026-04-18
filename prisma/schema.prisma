@@ -96,11 +96,14 @@ model Service {
   categoryId  String
   category    Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   providerId  String?   // Link to Provider who fulfills this service
+  provider    Provider? @relation(fields: [providerId], references: [id], onDelete: SetNull)
   rate        Float     // provider rate per 1000
   markup      Float     @default(3.0) // 300% markup
   minQty      Int       @default(10)
   maxQty      Int       @default(100000)
   externalId  String?   // mapped ID to provider
+  dataHash    String?   // MD5 for diff-sync
+  lastSeenAt  DateTime? // Last time provider confirmed this service exists
   
   // API v2 feature flags
   isDripFeedEnabled Boolean @default(true)
@@ -121,10 +124,15 @@ model Provider {
   id          String   @id @default(cuid())
   name        String   @unique
   apiUrl      String
-  apiKey      String
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  apiKey          String   // Encrypted API key
+  isActive        Boolean  @default(true)
+  metadata        Json?    // { httpMethod, requestType, headers, keyField, actionField }
+  syncLock        Boolean  @default(false)
+  balanceCurrency String   @default("USD")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  services        Service[]
 }
 
 model Order {

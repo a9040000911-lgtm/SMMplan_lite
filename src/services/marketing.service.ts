@@ -1,4 +1,9 @@
 import { db } from '@/lib/db';
+import {
+  calculateSafetyFloorCents,
+  MAX_TOTAL_DISCOUNT,
+  TOTAL_MANDATORY_DEDUCTIONS,
+} from '@/lib/financial-constants';
 
 export type PricingResult = {
   totalCents: number;
@@ -6,6 +11,7 @@ export type PricingResult = {
   discountCents: number;
   discountPercent: number;
   providerCostCents: number;
+  safetyFloorCents: number;
   tier: string;
 };
 
@@ -33,6 +39,12 @@ export class MarketingService {
   /**
    * Calculates the final price for an order, applying the maximum available discount
    * between User Volume Tier, User Personal Discount, and Promo Code.
+   * 
+   * SAFETY GUARANTEES (ported from Legacy Smmplan):
+   * 1. MAX_TOTAL_DISCOUNT cap — скидки не могут превысить 30%
+   * 2. Safety Floor — итоговая цена никогда не падает ниже
+   *    cost × (1 + 100%) / (1 − 14.5%) ≈ cost × 2.34
+   *    (покрывает: УСН 6% + НДС 5% + Эквайринг 3.5% + 100% наценка)
    */
   async calculatePrice(
     userId: string | null | undefined,
@@ -72,20 +84,28 @@ export class MarketingService {
     }
 
     // 3. Find the maximum discount available to prevent margin squeeze
-    // (We do not stack them additively)
-    const maxDiscountPercent = Math.max(
+    // (We do not stack them additively — we take the single best discount)
+    let maxDiscountPercent = Math.max(
       user?.personalDiscount || 0,
       volumeTier.discountPercent,
       promoDiscountPercent
     );
 
+    // 3a. [SAFETY] Hard ceiling on total discount — prevents stacking exploits
+    if (maxDiscountPercent > MAX_TOTAL_DISCOUNT) {
+      maxDiscountPercent = MAX_TOTAL_DISCOUNT;
+    }
+
     // 4. Calculate Final Cents
     const discountCents = Math.round((originalTotalCents * maxDiscountPercent) / 100);
     let totalCents = originalTotalCents - discountCents;
 
-    // Failsafe: Never sell below provider cost
-    if (totalCents < providerCostCents) {
-      totalCents = providerCostCents; // zero markup, zero loss
+    // 5. [SAFETY FLOOR] Never sell below break-even after taxes & gateway fees.
+    //    Old behaviour: `if (total < providerCost)` — didn't account for 14.5% deductions.
+    //    New: cost × (1 + 100%) / (1 − 14.5%) ≈ cost × 2.34
+    const safetyFloorCents = calculateSafetyFloorCents(providerCostCents);
+    if (totalCents < safetyFloorCents) {
+      totalCents = safetyFloorCents;
     }
 
     return {
@@ -94,6 +114,7 @@ export class MarketingService {
       discountCents,
       discountPercent: maxDiscountPercent,
       providerCostCents,
+      safetyFloorCents,
       tier: volumeTier.name,
     };
   }
@@ -117,11 +138,16 @@ export class MarketingService {
 
   /**
    * Evaluates volume discount for an array of services and formats them for B2B API Standards.
-   * Protects pricing from dropping below the provider base cost.
+   * Protects pricing from dropping below the safety floor.
    */
   getB2BFormattedServices(user: any, services: any[]) {
     const volumeTier = this.getVolumeTier(user.totalSpent);
-    const maxDiscountPercent = Math.max(user.personalDiscount || 0, volumeTier.discountPercent);
+    let maxDiscountPercent = Math.max(user.personalDiscount || 0, volumeTier.discountPercent);
+
+    // Apply hard ceiling
+    if (maxDiscountPercent > MAX_TOTAL_DISCOUNT) {
+      maxDiscountPercent = MAX_TOTAL_DISCOUNT;
+    }
 
     return services.map(s => {
       // 1. Calculate original rate in normal currency format (RUB, not cents)
@@ -131,9 +157,10 @@ export class MarketingService {
       const discountVal = (originalRatePer1000 * maxDiscountPercent) / 100;
       let finalRatePer1000 = originalRatePer1000 - discountVal;
 
-      // 3. Margin safety bounds
-      if (finalRatePer1000 < s.rate) {
-        finalRatePer1000 = s.rate;
+      // 3. Safety Floor: never below cost × 2.34 (covers taxes + gateway + 100% margin)
+      const safetyFloor = (s.rate * (1 + 1.0)) / (1 - TOTAL_MANDATORY_DEDUCTIONS);
+      if (finalRatePer1000 < safetyFloor) {
+        finalRatePer1000 = safetyFloor;
       }
 
       // 4. Return standard API v2 compliant object

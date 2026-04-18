@@ -34,27 +34,6 @@ export async function updateUserRole(formData: FormData) {
   revalidatePath('/admin/settings');
 }
 
-// ── Provider Upsert ──
-export async function upsertProvider(formData: FormData) {
-  const { session } = await requireAdmin();
-  const id = formData.get('id') as string || undefined;
-  const name = formData.get('name') as string;
-  const apiUrl = formData.get('apiUrl') as string;
-  const apiKey = formData.get('apiKey') as string;
-  const isActive = formData.get('isActive') === 'true';
-
-  if (!name || !apiUrl || !apiKey) return;
-
-  await settingsService.upsertProvider({ id, name, apiUrl, apiKey, isActive });
-  await db.auditLog.create({
-    data: {
-      userId: session.userId,
-      action: id ? 'PROVIDER_UPDATE' : 'PROVIDER_CREATE',
-      details: `Provider: ${name} (${apiUrl})`
-    }
-  });
-  revalidatePath('/admin/settings');
-}
 
 // ── System Settings Update ──
 export async function updateGlobalSettings(formData: FormData) {

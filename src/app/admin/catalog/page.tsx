@@ -3,16 +3,20 @@ import { updateMarkupAction, toggleServiceAction } from '@/actions/admin/catalog
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { db } from '@/lib/db';
+import { TOTAL_MANDATORY_DEDUCTIONS, SAFETY_FLOOR_MARKUP, applyBeautifulRounding } from '@/lib/financial-constants';
 
 export const dynamic = 'force-dynamic';
 
-// Exchange rate for display (should come from settings in production)
-const USD_TO_RUB = 95;
+// Exchange rate: In Smmplan Lite we don't have GlobalSetting yet, so we use a constant.
+export const USD_TO_RUB = 95;
 
-function calcSellingPrice(ratePerK: number, markup: number): number {
-  // rate is USD per 1000 units. Selling price = rate * markup * USD_TO_RUB (per 1000)
-  return ratePerK * markup * USD_TO_RUB;
+function calcSellingPrice(ratePerK: number, markup: number, usdToRub: number): number {
+  return ratePerK * markup * usdToRub;
 }
+
+// Safety floor multiplier: minimum markup that covers taxes + gateway + 100% margin
+const SAFETY_MULTIPLIER = (1 + SAFETY_FLOOR_MARKUP) / (1 - TOTAL_MANDATORY_DEDUCTIONS);
 
 type Props = {
   searchParams: Promise<{
@@ -33,6 +37,7 @@ export default async function AdminCatalogPage({ searchParams }: Props) {
   });
 
   const stats = await adminCatalogService.getCatalogStats();
+  const markupAnalytics = await adminCatalogService.getMarkupAnalytics();
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -44,6 +49,58 @@ export default async function AdminCatalogPage({ searchParams }: Props) {
             Всего: {stats.totalServices} • Активных: {stats.activeServices} • Категорий: {stats.categories}
           </p>
         </div>
+        <div className="flex gap-3">
+          <Link href="/admin/providers" className="inline-flex justify-center rounded-md border border-slate-300 bg-white py-2 px-4 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50">
+            Настройка панелей
+          </Link>
+          <Link href="/admin/catalog/categories" className="inline-flex justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700">
+            Категории
+          </Link>
+        </div>
+      </div>
+
+      {/* Markup Analytics Mini-Dashboard */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+        <div className="rounded-lg border border-slate-200 bg-white p-3 text-center">
+          <div className="text-2xl font-bold text-slate-800">{markupAnalytics.stats.total}</div>
+          <div className="text-[11px] text-slate-500 mt-0.5">Всего</div>
+        </div>
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-center">
+          <div className="text-2xl font-bold text-red-700">{markupAnalytics.stats.loss}</div>
+          <div className="text-[11px] text-red-600 mt-0.5">🔴 Убыток</div>
+        </div>
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-center">
+          <div className="text-2xl font-bold text-amber-700">{markupAnalytics.stats.thin}</div>
+          <div className="text-[11px] text-amber-600 mt-0.5">⚠️ Тонкая</div>
+        </div>
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-center">
+          <div className="text-2xl font-bold text-emerald-700">{markupAnalytics.stats.normal}</div>
+          <div className="text-[11px] text-emerald-600 mt-0.5">✅ Норма</div>
+        </div>
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-center">
+          <div className="text-2xl font-bold text-blue-700">{markupAnalytics.stats.high}</div>
+          <div className="text-[11px] text-blue-600 mt-0.5">💰 Высокая</div>
+        </div>
+        <div className="rounded-lg border border-purple-200 bg-purple-50 p-3 text-center">
+          <div className="text-2xl font-bold text-purple-700">{markupAnalytics.stats.extreme}</div>
+          <div className="text-[11px] text-purple-600 mt-0.5">🚀 Топ</div>
+        </div>
+      </div>
+
+      {markupAnalytics.stats.loss > 0 && (
+        <div className="rounded-lg border border-red-300 bg-red-50 p-4">
+          <h3 className="text-sm font-semibold text-red-800 mb-2">⚠️ Услуги с наценкой ниже Safety Floor (убыточные после налогов):</h3>
+          <div className="text-xs text-red-700 space-y-1">
+            {markupAnalytics.worstServices.slice(0, 5).map(ws => (
+              <div key={ws.id}>• <strong>{ws.name}</strong> — x{ws.markup.toFixed(1)} (нужно мин. x{SAFETY_MULTIPLIER.toFixed(1)}) [{ws.category}]</div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Exchange Rate Info */}
+      <div className="text-xs text-slate-400 text-right">
+        💱 Курс USD/RUB: {USD_TO_RUB.toFixed(2)} (из настроек)
       </div>
 
       {/* Search */}
@@ -86,11 +143,13 @@ export default async function AdminCatalogPage({ searchParams }: Props) {
               </thead>
               <tbody>
                 {services.map(s => {
-                  const sellingPrice = calcSellingPrice(s.rate, s.markup);
+                  const sellingPrice = calcSellingPrice(s.rate, s.markup, USD_TO_RUB);
+                  const roundedPrice = applyBeautifulRounding(sellingPrice);
                   const margin = ((s.markup - 1) * 100).toFixed(0);
+                  const isBelowSafety = s.markup < SAFETY_MULTIPLIER;
 
                   return (
-                    <tr key={s.id} className={`border-b border-slate-100 hover:bg-slate-50 ${!s.isActive ? 'opacity-50' : ''}`}>
+                    <tr key={s.id} className={`border-b border-slate-100 hover:bg-slate-50 ${!s.isActive ? 'opacity-50' : ''} ${isBelowSafety ? 'bg-red-50/50' : ''}`}>
                       <td className="py-3 px-2 font-mono text-xs text-slate-600">
                         #{s.numericId}
                         {s.externalId && (
@@ -115,7 +174,7 @@ export default async function AdminCatalogPage({ searchParams }: Props) {
                             name="markup"
                             step="0.1"
                             min="1.0"
-                            max="50.0"
+                            max="151.0"
                             defaultValue={s.markup}
                             className="w-16 px-1 py-0.5 text-xs border border-slate-200 rounded text-center"
                           />
@@ -126,10 +185,13 @@ export default async function AdminCatalogPage({ searchParams }: Props) {
                             ✓
                           </button>
                         </form>
-                        <span className="text-[10px] text-slate-400">+{margin}%</span>
+                        <span className={`text-[10px] ${isBelowSafety ? 'text-red-500 font-bold' : 'text-slate-400'}`}>+{margin}%{isBelowSafety ? ' ⚠️' : ''}</span>
                       </td>
                       <td className="py-3 px-2 text-xs font-semibold">
-                        {sellingPrice.toFixed(2)} ₽
+                        {roundedPrice.toFixed(2)} ₽
+                        {roundedPrice !== sellingPrice && (
+                          <span className="block text-[9px] text-slate-400 font-normal">({sellingPrice.toFixed(2)})</span>
+                        )}
                       </td>
                       <td className="py-3 px-2 text-xs text-slate-500">
                         {s.minQty.toLocaleString('ru-RU')} – {s.maxQty.toLocaleString('ru-RU')}

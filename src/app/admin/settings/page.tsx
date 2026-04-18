@@ -1,5 +1,5 @@
 import { settingsService } from '@/services/admin/settings.service';
-import { updateUserRole, upsertProvider, updateGlobalSettings } from '@/actions/admin/settings';
+import { updateUserRole, updateGlobalSettings } from '@/actions/admin/settings';
 import { updateSupportLimit } from '@/actions/admin/team';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,9 +15,8 @@ export default async function AdminSettingsPage({
 }: {
   searchParams: Promise<{ tab?: string }>;
 }) {
-  const [users, providers, settings, recentLogs] = await Promise.all([
+  const [users, settings, recentLogs] = await Promise.all([
     settingsService.listUsers(),
-    settingsService.listProviders(),
     settingsService.getSystemSettings(),
     db.adminAuditLog.findMany({ orderBy: { createdAt: 'desc' }, take: 15 }),
   ]);
@@ -166,47 +165,6 @@ export default async function AdminSettingsPage({
             </CardContent>
           </Card>
 
-          {/* Providers */}
-          <Card>
-            <CardHeader>
-              <CardTitle>SMM Providers</CardTitle>
-              <CardDescription>Upstream API links.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {providers.map((p) => (
-                <form
-                  key={p.id}
-                  action={upsertProvider}
-                  className="flex flex-wrap md:flex-nowrap gap-3 items-end p-4 bg-slate-50 rounded-lg border border-slate-100"
-                >
-                  <input type="hidden" name="id" value={p.id} />
-                  <div className="w-full md:w-1/4 space-y-1">
-                    <Label className="text-xs text-slate-500">Name</Label>
-                    <Input name="name" defaultValue={p.name} className="h-8 text-sm" />
-                  </div>
-                  <div className="w-full md:w-1/3 space-y-1">
-                    <Label className="text-xs text-slate-500">API URL</Label>
-                    <Input name="apiUrl" defaultValue={p.apiUrl} className="h-8 text-sm" />
-                  </div>
-                  <div className="w-full md:w-1/4 space-y-1">
-                    <Label className="text-xs text-slate-500">API Key</Label>
-                    <Input name="apiKey" defaultValue={p.apiKey} type="password" className="h-8 text-sm" />
-                  </div>
-                  <div className="w-full md:w-auto flex items-center gap-2">
-                    <input type="hidden" name="isActive" value={p.isActive ? 'true' : 'false'} />
-                    <Button type="submit" variant="outline" className="h-8 text-xs">Update</Button>
-                  </div>
-                </form>
-              ))}
-
-              <form action={upsertProvider} className="flex flex-wrap md:flex-nowrap gap-3 items-end p-4 bg-indigo-50/50 rounded-lg border border-indigo-100 border-dashed">
-                <div className="w-full md:w-1/4 space-y-1"><Input name="name" placeholder="Name" required className="h-8" /></div>
-                <div className="w-full md:w-1/3 space-y-1"><Input name="apiUrl" placeholder="URL" required className="h-8" /></div>
-                <div className="w-full md:w-1/4 space-y-1"><Input name="apiKey" placeholder="Key" required className="h-8" /></div>
-                <div className="w-full md:w-auto"><input type="hidden" name="isActive" value="true" /><Button type="submit" className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white">Add</Button></div>
-              </form>
-            </CardContent>
-          </Card>
         </div>
       )}
 
