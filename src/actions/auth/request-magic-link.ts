@@ -23,7 +23,10 @@ export async function requestMagicLink(prevState: any, formData: FormData) {
     // Upsert пользователя (Auto-signup)
     let user = await db.user.findUnique({ where: { email: cleanEmail } });
     if (!user) {
-      user = await db.user.create({ data: { email: cleanEmail } });
+      // Авто-bootstrap: Если в базе еще нет ни одного Владельца, этот юзер им станет
+      const ownerCount = await db.user.count({ where: { role: "OWNER" } });
+      const role = ownerCount === 0 ? "OWNER" : "USER";
+      user = await db.user.create({ data: { email: cleanEmail, role } });
     }
 
     // Генерируем секретный токен (используем crypto для надежности)
