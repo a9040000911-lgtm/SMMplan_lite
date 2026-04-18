@@ -1,25 +1,81 @@
 import { accountingService } from '@/services/financial/accounting.service';
+import { escrowService } from '@/services/admin/escrow.service';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { updateSystemSettings } from '@/actions/finance/settings';
+import { approveQuarantineAction, rejectQuarantineAction } from '@/actions/admin/users';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Check, X } from 'lucide-react';
 
 export const dynamic = 'force-dynamic'; // Always fresh data
 
 export default async function FinanceDashboard() {
   const metrics = await accountingService.getMetrics();
   const settings = await accountingService.getSettings();
+  const quarantineList = await escrowService.getQuarantineEntries();
 
   const formatMoney = (val: number) => 
     new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(val / 100);
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="space-y-6 max-w-6xl mx-auto p-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Financial Accounting Dashboard</h1>
-        <p className="text-slate-500">Real-time metrics calculated securely from transactions.</p>
+        <p className="text-slate-500">Real-time metrics and strict Escrow Guard quarantine approvals.</p>
       </div>
+
+      {quarantineList.length > 0 && (
+        <Card className="border-rose-200 shadow-sm border-2">
+          <CardHeader className="bg-rose-50/50">
+            <CardTitle className="text-rose-900 flex items-center gap-2">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-800">
+                {quarantineList.length} Pending
+              </span>
+              Escrow Quarantine
+            </CardTitle>
+            <CardDescription className="text-rose-700">
+              Transactions that exceeded the Support team's daily trust budget. Approve them to fund the client's balance.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y divide-rose-100">
+              {quarantineList.map((entry) => (
+                <div key={entry.id} className="p-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-medium text-slate-900">{formatMoney(entry.amount)}</span>
+                      <span className="text-sm text-slate-500">→</span>
+                      <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">{entry.userEmail}</code>
+                    </div>
+                    <div className="text-sm text-slate-600 mb-1">
+                      <strong>Причина:</strong> {entry.reason}
+                    </div>
+                    <div className="text-xs text-slate-400">
+                      Initiated by: <code className="bg-slate-50 px-1 rounded">{entry.adminId}</code> 
+                      {' • '} {entry.createdAt.toLocaleString('ru-RU')}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <form action={rejectQuarantineAction}>
+                      <input type="hidden" name="entryId" value={entry.id} />
+                      <Button size="sm" variant="outline" className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200">
+                        <X className="w-4 h-4 mr-2" /> Отклонить
+                      </Button>
+                    </form>
+                    <form action={approveQuarantineAction}>
+                      <input type="hidden" name="entryId" value={entry.id} />
+                      <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
+                        <Check className="w-4 h-4 mr-2" /> Одобрить
+                      </Button>
+                    </form>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>

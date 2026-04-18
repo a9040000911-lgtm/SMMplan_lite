@@ -3,6 +3,7 @@
 import { verifySession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { adminUserService } from '@/services/admin/user.service';
+import { escrowService } from '@/services/admin/escrow.service';
 import { auditAdmin } from '@/lib/admin-audit';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
@@ -30,10 +31,12 @@ export async function updateBalanceAction(formData: FormData) {
     throw new Error('userId, amount (копейки) и reason обязательны');
   }
 
-  await adminUserService.updateBalance(userId, amount, reason.trim(), {
-    id: admin.id,
-    email: admin.email,
-  });
+  await escrowService.evaluateBalanceAdjustment(
+    userId,
+    amount,
+    reason.trim(),
+    admin
+  );
 
   revalidatePath('/admin/clients');
 }
@@ -116,4 +119,28 @@ export async function loginAsAction(formData: FormData) {
 
   // Redirect happens on client via revalidation
   revalidatePath('/dashboard/new-order');
+}
+
+export async function approveQuarantineAction(formData: FormData) {
+  const { user: admin } = await requireStaff();
+  const entryId = formData.get('entryId') as string;
+
+  if (!['OWNER', 'ADMIN'].includes(admin.role)) {
+    throw new Error('Только Владелец может модерировать карантин');
+  }
+
+  await escrowService.resolveQuarantine(entryId, 'APPROVE', admin);
+  revalidatePath('/admin/finance');
+}
+
+export async function rejectQuarantineAction(formData: FormData) {
+  const { user: admin } = await requireStaff();
+  const entryId = formData.get('entryId') as string;
+
+  if (!['OWNER', 'ADMIN'].includes(admin.role)) {
+    throw new Error('Только Владелец может модерировать карантин');
+  }
+
+  await escrowService.resolveQuarantine(entryId, 'REJECT', admin);
+  revalidatePath('/admin/finance');
 }

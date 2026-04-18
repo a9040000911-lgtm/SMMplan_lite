@@ -10,7 +10,7 @@ export function auditAdmin(params: {
   adminEmail: string;
   action: string;
   target: string;
-  targetType: 'USER' | 'SERVICE' | 'ORDER' | 'SETTINGS' | 'PROVIDER' | 'TICKET';
+  targetType: 'USER' | 'SERVICE' | 'ORDER' | 'SETTINGS' | 'PROVIDER' | 'TICKET' | 'LEDGER';
   oldValue?: unknown;
   newValue?: unknown;
   ipAddress?: string;

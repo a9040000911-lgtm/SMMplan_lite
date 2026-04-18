@@ -15,6 +15,7 @@ model User {
   quarantineBalance Int     @default(0) // Funds pending Owner approval (Escrow)
   totalSpent       Int      @default(0) // Lifetime value in Cents
   personalDiscount Float    @default(0.0) // Manual discount override in %, max 100
+  supportLimitCents Int     @default(50000) // 500 RUB default trust budget for SUPPORT roles
   apiKey           String?  @unique
   referralCode     String?  @unique
   referredById     String?
@@ -207,6 +208,9 @@ model SystemSettings {
   maintenanceMode Boolean  @default(false)
   siteName        String   @default("Smmplan")
   siteDescription String   @default("")
+
+  // Telegram Bot Settings
+  welcomeMessage  String?  @default("Добро пожаловать в Smmplan! Ваш персональный кабинет готов к работе.")
 
   // Payment Gateways (Secrets are AES-256-GCM encrypted in DB)
   yookassaShopId    String?

@@ -10,6 +10,7 @@ export class SettingsService {
         email: true,
         role: true,
         balance: true,
+        supportLimitCents: true,
         createdAt: true,
         _count: { select: { orders: true, tickets: true } }
       }
@@ -63,6 +64,7 @@ export class SettingsService {
     maintenanceMode?: boolean;
     siteName?: string;
     siteDescription?: string;
+    welcomeMessage?: string;
     yookassaShopId?: string;
     yookassaSecretKey?: string;
     cryptoBotToken?: string;

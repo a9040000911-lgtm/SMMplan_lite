@@ -63,6 +63,7 @@ export async function updateGlobalSettings(formData: FormData) {
   const maintenanceMode = formData.get('maintenanceMode') === 'true';
   const siteName = formData.get('siteName') as string || 'Smmplan';
   const siteDescription = formData.get('siteDescription') as string || '';
+  const welcomeMessage = formData.get('welcomeMessage') as string | null;
 
   // Payment Gateways
   const yookassaShopId = formData.get('yookassaShopId') as string | null;
@@ -70,6 +71,7 @@ export async function updateGlobalSettings(formData: FormData) {
   const rawCryptoBotToken = formData.get('cryptoBotToken') as string | null;
 
   const dataToUpdate: any = { maintenanceMode, siteName, siteDescription };
+  if (welcomeMessage !== null) dataToUpdate.welcomeMessage = welcomeMessage;
 
   // Only update secrets if they are provided (prevent overwriting with empty)
   if (yookassaShopId) dataToUpdate.yookassaShopId = yookassaShopId;
