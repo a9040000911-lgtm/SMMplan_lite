@@ -4,6 +4,8 @@ import { db } from '@/lib/db';
 import { marketingService, PricingResult } from '@/services/marketing.service';
 import { RateLimitService } from '@/services/core/rate-limit.service';
 import { SettingsManager } from '@/lib/settings';
+import { orderService } from '@/services/core/order.service';
+import { revalidatePath } from 'next/cache';
 
 /**
  * Calculates price for display on the order form (no auth required).
@@ -85,23 +87,18 @@ export async function checkoutAction(
     // 5. Create Order + Payment atomically
     const result = await db.$transaction(async (tx) => {
       // Create Order
-      const newOrder = await tx.order.create({
-        data: {
-          userId: user.id,
-          serviceId,
-          link,
-          quantity,
-          email: email.toLowerCase(),
-          status: 'AWAITING_PAYMENT',
-          charge: pricing.totalCents,
-          providerCost: pricing.providerCostCents,
-          remains: quantity,
-          runs,
-          interval,
-          isTest: isTestMode,
-          isDripFeed: (runs && runs > 1) ? true : false,
-          nextRunAt: (runs && runs > 1) ? new Date() : null
-        }
+      const newOrder = await orderService.createOrderTransaction(tx, {
+        userId: user.id,
+        serviceId,
+        link,
+        quantity,
+        email,
+        status: 'AWAITING_PAYMENT',
+        charge: pricing.totalCents,
+        providerCost: pricing.providerCostCents,
+        runs,
+        interval,
+        isTestMode
       });
 
       // Consume Promo Code if used
@@ -208,6 +205,8 @@ export async function checkoutAction(
         data: { gatewayId: remoteGatewayId }
       });
     }
+
+    revalidatePath('/dashboard', 'layout');
 
     return { 
       success: true, 

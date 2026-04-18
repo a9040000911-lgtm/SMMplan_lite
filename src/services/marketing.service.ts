@@ -114,6 +114,45 @@ export class MarketingService {
       }
     }
   }
+
+  /**
+   * Evaluates volume discount for an array of services and formats them for B2B API Standards.
+   * Protects pricing from dropping below the provider base cost.
+   */
+  getB2BFormattedServices(user: any, services: any[]) {
+    const volumeTier = this.getVolumeTier(user.totalSpent);
+    const maxDiscountPercent = Math.max(user.personalDiscount || 0, volumeTier.discountPercent);
+
+    return services.map(s => {
+      // 1. Calculate original rate in normal currency format (RUB, not cents)
+      const originalRatePer1000 = s.rate * s.markup;
+      
+      // 2. Apply highest applicable discount
+      const discountVal = (originalRatePer1000 * maxDiscountPercent) / 100;
+      let finalRatePer1000 = originalRatePer1000 - discountVal;
+
+      // 3. Margin safety bounds
+      if (finalRatePer1000 < s.rate) {
+        finalRatePer1000 = s.rate;
+      }
+
+      // 4. Return standard API v2 compliant object
+      return {
+        service: s.numericId,
+        name: s.name,
+        type: 'Default',
+        category: s.category.name,
+        // Ensure rate matches the Smmplan schema (not cents) formatted strictly to 4 decimals
+        rate: Number(finalRatePer1000).toFixed(4),
+        min: s.minQty.toString(),
+        max: s.maxQty.toString(),
+        dripfeed: s.isDripFeedEnabled,
+        refill: s.isRefillEnabled,
+        cancel: s.isCancelEnabled
+      };
+    });
+  }
 }
+
 
 export const marketingService = new MarketingService();

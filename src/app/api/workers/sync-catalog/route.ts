@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { providerService } from '@/services/providers/provider.service';
+import { sendAdminAlert } from '@/lib/notifications';
 
 export async function GET(request: Request) {
   // 1. Verify Authentication 
@@ -75,6 +76,14 @@ export async function GET(request: Request) {
       }
     }
 
+    // Alert if services were disabled
+    if (disabledCnt > 0) {
+      sendAdminAlert(
+        `Catalog Sync: ${disabledCnt} услуг деактивировано (провайдер удалил)\nОбновлено: ${updatedCnt}, Без изменений: ${unchangedCnt}`,
+        'WARNING'
+      );
+    }
+
     return NextResponse.json({
       message: 'Catalog Sync Successful',
       details: {
@@ -87,6 +96,7 @@ export async function GET(request: Request) {
 
   } catch (error: any) {
     console.error(`[Worker] Catalog sync error:`, error);
+    sendAdminAlert(`🔴 Catalog sync FAILED: ${error.message}`, 'CRITICAL');
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

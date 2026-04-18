@@ -7,6 +7,12 @@ beforeAll(() => {
   
   // Mock external fetch to avoid real network requests to YooKassa/CryptoBot
   vi.stubGlobal('fetch', vi.fn());
+
+  // Mock Next.js Cache invalidation methods to prevent 'static generation store missing' errors natively
+  vi.mock('next/cache', () => ({
+    revalidatePath: vi.fn(),
+    revalidateTag: vi.fn()
+  }));
 });
 
 beforeEach(async () => {

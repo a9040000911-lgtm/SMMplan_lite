@@ -90,7 +90,7 @@ export class OrderSyncWorker {
         if (!newStatusData) continue;
 
         let newLocalStatus = order.status;
-        let requiresRefund = false;
+        const requiresRefund = false;
         let refundAmount = 0;
 
         // Map Provider Status to Local Status

@@ -7,7 +7,7 @@ const paymentService = new PaymentService();
 describe('Integration: Payment Webhooks & Idempotency', () => {
   let testUserId: string;
   let testOrderId: string;
-  let testGatewayId = 'gw-54321';
+  const testGatewayId = 'gw-54321';
 
   beforeEach(async () => {
     // DB is truncated via global setup

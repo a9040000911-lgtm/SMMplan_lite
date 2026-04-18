@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { revalidatePath } from 'next/cache';
 
 export class PaymentService {
   /**
@@ -86,6 +87,9 @@ export class PaymentService {
         }
       });
 
+      // Invalidate user dashboard cache so they see the new order & spending immediately
+      revalidatePath('/dashboard', 'layout');
+
       return true;
     } catch (e: any) {
       console.error('[PaymentService] Error confirming payment:', e.message);
@@ -132,6 +136,8 @@ export class PaymentService {
           }
         }
       });
+
+      revalidatePath('/dashboard', 'layout');
 
       return true;
     } catch (e: any) {

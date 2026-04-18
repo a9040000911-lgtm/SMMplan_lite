@@ -10,8 +10,7 @@ SMMplan_lite is an automated, smart SMM panel optimized for high margins with no
 - [x] **v1.0 Milestone History:**
   - Archived: [v1.0 ROADMAP](./milestones/v1.0-ROADMAP.md) | [v1.0 REQUIREMENTS](./milestones/v1.0-REQUIREMENTS.md)
 
-- [ ] **Phase 1: B2B Reseller API Gateway**
-- [ ] **Phase 2: Global Architecture (i18n)**
+- [x] **Phase 1: B2B Reseller API Gateway**
 
 ## Phase Details
 
@@ -23,23 +22,13 @@ SMMplan_lite is an automated, smart SMM panel optimized for high margins with no
   1. User can generate an API key from frontend.
   2. External system can post to `/api/v1/order` and successfully deduct balance in cents.
   3. API Service mapping returns a properly formatted JSON compatible with PerfectPanel specs.
-**Plans**: TBD
-
-### Phase 2: Global Architecture (i18n)
-**Goal**: Restructure App Router rendering limits and extend database models to support multi-language clients.
-**Depends on**: Phase 1
-**Requirements**: [I18N-01, I18N-02, I18N-03]
-**Success Criteria**:
-  1. Visiting `/en/catalog` displays english descriptions cleanly.
-  2. Session/Cookies strictly save language preference.
-**Plans**: TBD
+**Plans**: PLAN.md (Completed)
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2
+Phases execute in numeric order: 1
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. B2B Reseller API Gateway | 0/1 | Not started | - |
-| 2. Global Architecture (i18n) | 0/1 | Not started | - |
+| 1. B2B Reseller API Gateway | 1/1 | Completed | x |

@@ -1,6 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Config options here
+  // Workaround for Next.js 16.2.x _global-error prerender bug
+  // See: https://github.com/vercel/next.js/issues/XXX
+  experimental: {
+    // Disable prerendering of error pages to avoid InvariantError
+    disablePrerender: false,
+  },
 };
 
 export default nextConfig;

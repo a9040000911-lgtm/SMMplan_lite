@@ -10,14 +10,16 @@ datasource db {
 model User {
   id               String   @id @default(cuid())
   email            String   @unique
-  role             String   @default("USER")
+  role             String   @default("USER") // USER, SUPPORT, MANAGER, OWNER
   balance          Int      @default(0)
+  quarantineBalance Int     @default(0) // Funds pending Owner approval (Escrow)
   totalSpent       Int      @default(0) // Lifetime value in Cents
   personalDiscount Float    @default(0.0) // Manual discount override in %, max 100
   apiKey           String?  @unique
   referralCode     String?  @unique
   referredById     String?
   referralBalance  Int      @default(0)
+  telegramId       String?  // Telegram user ID for omnichannel support routing
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -37,7 +39,9 @@ model User {
 model PromoCode {
   id              String    @id @default(cuid())
   code            String    @unique
-  discountPercent Float     // 10.0 = 10%
+  type            String    @default("DISCOUNT") // DISCOUNT (%), VOUCHER (fixed amount)
+  discountPercent Float     // 10.0 = 10% (used when type=DISCOUNT)
+  amount          Float     @default(0) // Fixed amount in RUB (used when type=VOUCHER)
   maxUses         Int       @default(1)
   uses            Int       @default(0)
   isActive        Boolean   @default(true)
@@ -87,8 +91,10 @@ model Service {
   id          String    @id @default(cuid())
   numericId   Int       @unique @default(autoincrement())
   name        String
+  description String?   // Public SEO description (shown to clients)
   categoryId  String
   category    Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  providerId  String?   // Link to Provider who fulfills this service
   rate        Float     // provider rate per 1000
   markup      Float     @default(3.0) // 300% markup
   minQty      Int       @default(10)
@@ -107,6 +113,7 @@ model Service {
   orders      Order[]
 
   @@index([categoryId])
+  @@index([providerId])
 }
 
 model Provider {
@@ -215,6 +222,7 @@ model Ticket {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   subject   String
   status    String   @default("OPEN") // OPEN, PENDING, CLOSED
+  source    String   @default("WEB") // WEB, TELEGRAM, EMAIL
 
   messages  TicketMessage[]
   
@@ -222,6 +230,7 @@ model Ticket {
   createdAt DateTime @default(now())
 
   @@index([userId])
+  @@index([source])
 }
 
 model TicketMessage {
@@ -287,4 +296,36 @@ model RateLimit {
   @@index([expiresAt])
 }
 
+// ── Admin Panel: Audit & Finance ──
 
+model AdminAuditLog {
+  id         String   @id @default(cuid())
+  adminId    String   // Who performed the action
+  adminEmail String   // Denormalized for fast log reading
+  action     String   // USER_BALANCE_CHANGE, SERVICE_DISABLE, SETTINGS_UPDATE, etc.
+  target     String   // ID of affected entity
+  targetType String   // USER, SERVICE, ORDER, SETTINGS, PROVIDER
+  oldValue   String?  // JSON string of previous state
+  newValue   String?  // JSON string of new state
+  ipAddress  String?  // Admin IP for security investigations
+  createdAt  DateTime @default(now())
+
+  @@index([adminId])
+  @@index([createdAt])
+  @@index([targetType])
+}
+
+model LedgerEntry {
+  id        String   @id @default(cuid())
+  userId    String   // Client whose balance was affected
+  adminId   String   // Support agent who initiated
+  amount    Int      // Amount in Cents (positive = credit, negative = debit)
+  reason    String   // Mandatory justification text
+  status    String   @default("APPROVED") // APPROVED, QUARANTINE, REJECTED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([adminId])
+}

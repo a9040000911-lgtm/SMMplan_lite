@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { verifyB2BKey } from '@/lib/b2b-auth';
 import { marketingService } from '@/services/marketing.service';
+import { orderService } from '@/services/core/order.service';
+import { z } from 'zod';
+import { type User } from '@prisma/client';
 
 // Standard SMM Panel API v2 Implementation
 // https://panel.com/api/v2
@@ -87,66 +90,27 @@ async function handleServices(user: any) {
     where: { isActive: true }
   });
 
-  const volumeTier = marketingService.getVolumeTier(user.totalSpent);
-  const maxDiscountPercent = Math.max(user.personalDiscount, volumeTier.discountPercent);
-
-  const formattedServices = services.map(s => {
-    const originalRatePer1000 = s.rate * s.markup;
-    const discountVal = (originalRatePer1000 * maxDiscountPercent) / 100;
-    let finalRatePer1000 = originalRatePer1000 - discountVal;
-
-    if (finalRatePer1000 < s.rate) {
-      finalRatePer1000 = s.rate;
-    }
-
-    return {
-      service: s.numericId, // Standard APIs use integers
-      name: s.name,
-      type: 'Default',
-      category: s.category.name,
-      rate: (finalRatePer1000 / 100).toFixed(4), // Assume rate was in cents, wait, no, rate is float in Smmplan currently. If we want float standard we format it directly. Actually s.rate is float.
-      min: s.minQty.toString(),
-      max: s.maxQty.toString(),
-      dripfeed: s.isDripFeedEnabled,
-      refill: s.isRefillEnabled,
-      cancel: s.isCancelEnabled
-    };
-  });
-
-  // Hotfix for Smmplan rate type which is float, formatting appropriately.
-  // In Smmplan, user balance is Cents, but rate in API should be normal decimal.
-  // Wait, the API spec says rate is "0.90" (USD/RUB). In Smmplan rate is 15.0.
-  // Let's ensure it's properly formatted.
-  const finalFormatted = formattedServices.map(s => ({
-    ...s,
-    // Smmplan's rate is nominally in full currency units (e.g. 15 RUB), not cents, because checkout converts it.
-    // Actually, checkout does Math.round((rate / 1000) * qty * 100). So rate is in RUB.
-    rate: Number(s.rate).toFixed(4)
-  }));
-
+  const finalFormatted = marketingService.getB2BFormattedServices(user, services);
   return NextResponse.json(finalFormatted);
 }
 
+const addSchema = z.object({
+  service: z.coerce.number().int().positive(),
+  link: z.string().url().or(z.string().min(1)),
+  quantity: z.coerce.number().int().positive(),
+  runs: z.coerce.number().int().positive().optional(),
+  interval: z.coerce.number().int().positive().optional()
+});
+
 async function handleAdd(user: any, formData: FormData) {
-  const serviceNumericIdStr = formData.get('service')?.toString();
-  const link = formData.get('link')?.toString();
-  const quantity = parseInt(formData.get('quantity')?.toString() || '0', 10);
-  
-  // Custom type specific logic (optional for standard)
-  // const comments = formData.get('comments')?.toString();
-  // const usernames = formData.get('usernames')?.toString();
+  const payload = Object.fromEntries(formData.entries());
+  const parsed = addSchema.safeParse(payload);
 
-  const runs = formData.get('runs') ? parseInt(formData.get('runs')?.toString() as string, 10) : undefined;
-  const interval = formData.get('interval') ? parseInt(formData.get('interval')?.toString() as string, 10) : undefined;
-
-  if (!serviceNumericIdStr || !link || quantity <= 0) {
+  if (!parsed.success) {
     return NextResponse.json({ error: 'Incorrect parameters' }, { status: 400 });
   }
 
-  const serviceNumericId = parseInt(serviceNumericIdStr, 10);
-  if (isNaN(serviceNumericId)) {
-    return NextResponse.json({ error: 'Incorrect service ID' }, { status: 400 });
-  }
+  const { service: serviceNumericId, link, quantity, runs, interval } = parsed.data;
 
   const service = await db.service.findUnique({ where: { numericId: serviceNumericId } });
   if (!service || !service.isActive) {
@@ -161,13 +125,7 @@ async function handleAdd(user: any, formData: FormData) {
     const pricing = await marketingService.calculatePrice(user.id, service.id, quantity);
 
     const orderNumericId = await db.$transaction(async (tx) => {
-      const lockUser = await tx.user.findUniqueOrThrow({ where: { id: user.id } });
-
-      if (lockUser.balance < pricing.totalCents) {
-        throw new Error('INSUFFICIENT_FUNDS');
-      }
-
-      await tx.user.update({
+      const updatedUser = await tx.user.update({
         where: { id: user.id },
         data: { 
           balance: { decrement: pricing.totalCents },
@@ -175,36 +133,35 @@ async function handleAdd(user: any, formData: FormData) {
         }
       });
 
-      const newOrder = await tx.order.create({
-        data: {
-          userId: user.id,
-          serviceId: service.id,
-          link,
-          quantity,
-          status: 'PENDING', // PENDING means paid by balance and ready for processing
-          charge: pricing.totalCents,
-          providerCost: pricing.providerCostCents,
-          remains: quantity,
-          runs,
-          interval,
-          isDripFeed: (runs && runs > 1) ? true : false,
-          nextRunAt: (runs && runs > 1) ? new Date() : null
-        }
+      if (updatedUser.balance < 0) {
+        throw new Error('INSUFFICIENT_FUNDS');
+      }
+
+      const newOrder = await orderService.createOrderTransaction(tx, {
+        userId: user.id,
+        serviceId: service.id,
+        link,
+        quantity,
+        status: 'PENDING',
+        charge: pricing.totalCents,
+        providerCost: pricing.providerCostCents,
+        runs,
+        interval
       });
 
       return newOrder.numericId;
     });
 
     return NextResponse.json({ order: orderNumericId });
-  } catch (err: any) {
-    if (err.message === 'INSUFFICIENT_FUNDS') {
+  } catch (err: unknown) {
+    if (err instanceof Error && err.message === 'INSUFFICIENT_FUNDS') {
       return NextResponse.json({ error: 'Not enough funds on balance' }, { status: 400 });
     }
     throw err;
   }
 }
 
-async function handleStatus(user: any, formData: FormData) {
+async function handleStatus(user: User, formData: FormData) {
   const orderStr = formData.get('order')?.toString();
   const ordersStr = formData.get('orders')?.toString();
 
@@ -259,14 +216,14 @@ async function handleStatus(user: any, formData: FormData) {
   return NextResponse.json({ error: 'Missing order parameter' }, { status: 400 });
 }
 
-async function handleBalance(user: any) {
+async function handleBalance(user: User) {
   return NextResponse.json({
     balance: (user.balance / 100).toFixed(4),
     currency: 'RUB'
   });
 }
 
-async function handleCancel(user: any, formData: FormData) {
+async function handleCancel(user: User, formData: FormData) {
   const ordersStr = formData.get('orders')?.toString() || formData.get('order')?.toString();
   
   if (!ordersStr) {
@@ -280,7 +237,7 @@ async function handleCancel(user: any, formData: FormData) {
   });
 }
 
-async function handleRefill(user: any, formData: FormData) {
+async function handleRefill(user: User, formData: FormData) {
   const orderStr = formData.get('order')?.toString();
   if (!orderStr) {
     return NextResponse.json({ error: 'Missing order parameter' }, { status: 400 });

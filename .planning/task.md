@@ -1,0 +1,12 @@
+- `[x]` Pass 1: Static & Code Quality
+  - `[x]` Fix `any` types in `test/integration/checkout.test.ts`
+  - `[x]` Fix `any` types in `test/integration/api-v2.test.ts`
+  - `[x]` Fix `any` types in `src/app/api/v2/route.ts` (e.g. `user` and `err`)
+- `[x]` Pass 2: Dynamic Coverage (Vitest)
+  - `[x]` Add unit test `test/unit/encryption.test.ts` for AES-256-GCM logic
+  - `[x]` Add `action=status` and `action=balance` tests in `api-v2.test.ts`
+  - `[x]` Add `action=refill` and `action=cancel` dummy return tests in `api-v2.test.ts`
+  - `[x]` Add missing RateLimit exception and CryptoBot execution cases to `checkout.test.ts`
+- `[x]` Pass 3: Security Constraints
+  - `[x]` Run `npm install next@latest nodemailer@latest` (to clear High Severity DoS vulnerabilities)
+  - `[x]` Write a test verifying that `db.$transaction` prevents balance drops below 0.
