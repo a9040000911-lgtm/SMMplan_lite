@@ -1,0 +1,58 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ "master", "main" ]
+  pull_request:
+    branches: [ "master", "main" ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: smmplan_lite_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js 20
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run ESLint
+      run: npm run lint
+
+    - name: Check TypeScript Types
+      run: npx tsc --noEmit
+
+    - name: Apply Prisma Migrations (Test DB)
+      # In testing we can use db push or migrate deploy. 
+      # db push is faster for volatile test DBs.
+      run: npx prisma db push
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/smmplan_lite_test?schema=public
+
+    - name: Run Tests
+      run: npm run test
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/smmplan_lite_test?schema=public
+        # Minimal env vars required for tests
+        APP_ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"

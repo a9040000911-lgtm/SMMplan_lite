@@ -1,0 +1,51 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: smmplan_lite_prod_db
+    restart: always
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-smmplan_lite}
+    volumes:
+      - prod_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: smmplan_lite_prod_app
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-smmplan_lite}?schema=public
+      - APP_ENCRYPTION_KEY=${APP_ENCRYPTION_KEY}
+      - ADMIN_ALERT_BOT_TOKEN=${ADMIN_ALERT_BOT_TOKEN}
+      - ADMIN_ALERT_CHAT_ID=${ADMIN_ALERT_CHAT_ID}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - BASE_URL=${BASE_URL}
+      - YOO_SHOP_ID=${YOO_SHOP_ID}
+      - YOO_SECRET_KEY=${YOO_SECRET_KEY}
+      - CRYPTOBOT_TOKEN=${CRYPTOBOT_TOKEN}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  nginx:
+    image: nginx:alpine
+    container_name: smmplan_lite_prod_nginx
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+
+volumes:
+  prod_postgres_data:

@@ -32,3 +32,13 @@ Phases execute in numeric order: 1
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. B2B Reseller API Gateway | 1/1 | Completed | x |
+
+### Phase 2: Production Hardening (Docker, CI/CD, Deployment Architecture)
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 1
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 2 to break down)

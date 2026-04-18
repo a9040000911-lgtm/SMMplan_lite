@@ -1,0 +1,16 @@
+Dockerfile
+.dockerignore
+node_modules
+npm-debug.log
+README.md
+.next
+.git
+.planning
+*.log
+.env*
+!.env.example
+test/
+vitest.config.ts
+vitest-env.d.ts
+eslint.config.mjs
+components.json*

@@ -6,6 +6,7 @@ const nextConfig = {
     // Disable prerendering of error pages to avoid InvariantError
     disablePrerender: false,
   },
+  output: "standalone",
 };
 
 export default nextConfig;
