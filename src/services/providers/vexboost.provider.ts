@@ -36,9 +36,9 @@ export class VexboostProvider implements IProvider {
     } catch (e: any) {
       clearTimeout(timeoutId);
       if (e.name === 'AbortError') {
-        throw new Error('Provider connection timeout (10s)');
+        throw new Error('Provider connection timeout (10s)', { cause: e });
       }
-      throw new Error(`Provider Request Failed: ${e.message}`);
+      throw new Error(`Provider Request Failed: ${e.message}`, { cause: e });
     }
   }
 

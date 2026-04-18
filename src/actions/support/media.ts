@@ -64,7 +64,7 @@ export async function uploadMedia(formData: FormData) {
   try {
     await fs.writeFile(filePath, buffer);
   } catch (e: any) {
-    throw new Error(`Upload failed: ${e.message}`);
+    throw new Error(`Upload failed: ${e.message}`, { cause: e });
   }
 
   const mediaUrl = `tickets/${ticketId}/${safeFilename}`;

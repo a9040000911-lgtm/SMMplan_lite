@@ -357,7 +357,7 @@ export const SmartAnalyzerLogic = class {
         }
 
         // 3. Target Type
-        let targetType = 'POST';
+        let targetType: string;
         const isPrivate = fullContent.includes('private') || fullContent.includes('закрыт') || fullContent.includes('приват');
         const isAuto = isAutoMention || fullContent.includes('последних');
 

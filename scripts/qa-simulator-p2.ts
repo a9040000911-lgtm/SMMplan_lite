@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 import { db } from '../src/lib/db';
 import crypto from 'crypto';
 
