@@ -327,9 +327,8 @@ export class AdminCatalogService {
     const safetyMultiplier = (1 + SAFETY_FLOOR_MARKUP) / (1 - TOTAL_MANDATORY_DEDUCTIONS);
 
     const stats = { total: services.length, loss: 0, thin: 0, normal: 0, high: 0, extreme: 0 };
-    const lossList: typeof worstServices = [];
+    const lossList: { id: string; name: string; rate: number; markup: number; category: string }[] = [];
 
-    const worstServices: { id: string; name: string; rate: number; markup: number; category: string }[] = [];
 
     for (const s of services) {
       if (s.markup < safetyMultiplier) {

@@ -5,6 +5,7 @@ import { providerService } from "@/services/providers/provider.service";
 import { SmartAnalyzerLogic, CATEGORY_LABELS } from "@/services/providers/smart-analyzer.logic";
 
 import { requireAdmin } from "@/lib/server/rbac";
+import { auditAdmin } from "@/lib/admin-audit";
 
 export async function adminSyncProviderCatalog() {
   return requireAdmin(async () => {
@@ -21,9 +22,10 @@ export async function adminSyncProviderCatalog() {
       let updatedServices = 0;
 
       // Prefetch all categories to avoid N+1 DB locks
-      const existingCats = await db.category.findMany();
-      // Map Format -> "INSTAGRAM__❤️ Лайки / Нравится": "cuid_xyz123"
-      const catMap = new Map(existingCats.map(c => [`${c.platform}__${c.name}`, c.id]));
+      // Prefetch all categories to avoid N+1 DB locks
+      const existingCats = await db.category.findMany({ include: { network: true } });
+      // Map Format -> "instagram__❤️ Лайки / Нравится": "cuid_xyz123"
+      const catMap = new Map(existingCats.map(c => [`${c.network?.slug || 'unknown'}__${c.name}`, c.id]));
 
       // Pre-fetch all externalIds currently existing to avoid N+1 queries
       const existingServices = await db.service.findMany({ select: { id: true, externalId: true } });
@@ -42,13 +44,20 @@ export async function adminSyncProviderCatalog() {
          const catName = CATEGORY_LABELS[rawCatName] || rawCatName; 
 
          // 2. Resolve Category Map
-         const mapKey = `${platform}__${catName}`;
+         const canonicalSlug = platform.toLowerCase() || 'unknown';
+         const mapKey = `${canonicalSlug}__${catName}`;
          let categoryId = catMap.get(mapKey);
 
          if (!categoryId) {
+             const network = await db.network.upsert({
+                 where: { slug: canonicalSlug },
+                 update: {},
+                 create: { name: platform, slug: canonicalSlug, sort: 0 }
+             });
+
              const newCat = await db.category.create({
                  data: {
-                     platform: platform,
+                     networkId: network.id,
                      name: catName,
                      sort: 0
                  }
@@ -96,6 +105,15 @@ export async function adminSyncProviderCatalog() {
              newServices++;
          }
       }
+
+      auditAdmin({
+        adminId: 'system',
+        adminEmail: 'system',
+        action: 'CATALOG_SYNC',
+        target: 'provider',
+        targetType: 'SERVICE',
+        newValue: { createdCats, newServices, updatedServices },
+      });
 
       return { 
           success: true, 

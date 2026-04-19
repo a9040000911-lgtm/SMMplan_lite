@@ -4,6 +4,29 @@ import { verifySession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { adminCatalogService } from '@/services/admin/catalog.service';
 import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
+
+const updateMarkupSchema = z.object({
+  serviceId: z.string().min(1),
+  markup: z.coerce.number()
+});
+
+const toggleServiceSchema = z.object({
+  serviceId: z.string().min(1),
+  isActive: z.any().transform(val => val === 'true' || val === 'on')
+});
+
+const importServicesSchema = z.object({
+  externalIds: z.string().min(1),
+  categoryId: z.string().min(1),
+  markup: z.coerce.number().optional().default(3.0)
+});
+
+const bulkUpdateMarkupSchema = z.object({
+  categoryId: z.string().nullable().optional(),
+  platform: z.string().nullable().optional(),
+  markup: z.coerce.number().min(1.0).max(151.0)
+});
 
 async function requireManager() {
   const session = await verifySession();
@@ -17,10 +40,9 @@ async function requireManager() {
 
 export async function updateMarkupAction(formData: FormData) {
   const { user } = await requireManager();
-  const serviceId = formData.get('serviceId') as string;
-  const markup = parseFloat(formData.get('markup') as string);
-
-  if (!serviceId || isNaN(markup)) throw new Error('serviceId и markup обязательны');
+  const parsed = updateMarkupSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) throw new Error('serviceId и markup обязательны');
+  const { serviceId, markup } = parsed.data;
 
   await adminCatalogService.updateMarkup(serviceId, markup, {
     id: user.id,
@@ -32,10 +54,9 @@ export async function updateMarkupAction(formData: FormData) {
 
 export async function toggleServiceAction(formData: FormData) {
   const { user } = await requireManager();
-  const serviceId = formData.get('serviceId') as string;
-  const isActive = formData.get('isActive') === 'true';
-
-  if (!serviceId) throw new Error('Missing serviceId');
+  const parsed = toggleServiceSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) throw new Error('Missing serviceId');
+  const { serviceId, isActive } = parsed.data;
 
   await adminCatalogService.toggleService(serviceId, isActive, {
     id: user.id,
@@ -47,15 +68,13 @@ export async function toggleServiceAction(formData: FormData) {
 
 export async function importServicesAction(formData: FormData) {
   const { user } = await requireManager();
-  const externalIdsRaw = formData.get('externalIds') as string;
-  const categoryId = formData.get('categoryId') as string;
-  const markup = parseFloat(formData.get('markup') as string) || 3.0;
-
-  if (!externalIdsRaw || !categoryId) {
+  const parsed = importServicesSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) {
     throw new Error('externalIds и categoryId обязательны');
   }
+  const { externalIds: externalIdsRaw, categoryId, markup } = parsed.data;
 
-  const externalIds = externalIdsRaw.split(',').map(s => s.trim()).filter(Boolean);
+  const externalIds = externalIdsRaw.split(',').map((s: string) => s.trim()).filter(Boolean);
 
   await adminCatalogService.importServices(externalIds, categoryId, markup, {
     id: user.id,
@@ -71,13 +90,11 @@ export async function importServicesAction(formData: FormData) {
  */
 export async function bulkUpdateMarkupAction(formData: FormData) {
   const { user } = await requireManager();
-  const categoryId = formData.get('categoryId') as string | null;
-  const platform = formData.get('platform') as string | null;
-  const markup = parseFloat(formData.get('markup') as string);
-
-  if (isNaN(markup) || markup < 1.0 || markup > 151.0) {
+  const parsed = bulkUpdateMarkupSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) {
     throw new Error('Наценка должна быть в диапазоне 1.0–151.0');
   }
+  const { categoryId, platform, markup } = parsed.data;
 
   const filter: { categoryId?: string; platform?: string } = {};
   if (categoryId) filter.categoryId = categoryId;

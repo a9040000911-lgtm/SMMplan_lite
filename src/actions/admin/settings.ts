@@ -5,22 +5,38 @@ import { db } from '@/lib/db';
 import { settingsService } from '@/services/admin/settings.service';
 import { revalidatePath } from 'next/cache';
 import { EncryptionService } from '@/lib/encryption';
+import { z } from 'zod';
+
+const roleSchema = z.object({
+  userId: z.string().min(1),
+  role: z.string().min(1),
+});
+
+const globalSettingsSchema = z.object({
+  maintenanceMode: z.any().transform((val) => val === 'true' || val === 'on'),
+  siteName: z.any().transform((v) => (typeof v === 'string' && v.trim() ? v : 'Smmplan')),
+  siteDescription: z.any().transform((v) => (typeof v === 'string' ? v : '')),
+  welcomeMessage: z.any().transform((v) => (typeof v === 'string' && v ? v : null)),
+  yookassaShopId: z.any().transform((v) => (typeof v === 'string' && v ? v : null)),
+  yookassaSecretKey: z.any().transform((v) => (typeof v === 'string' && v ? v : null)),
+  cryptoBotToken: z.any().transform((v) => (typeof v === 'string' && v ? v : null)),
+});
 
 async function requireAdmin() {
   const session = await verifySession();
   if (!session) throw new Error('Unauthorized');
   const user = await db.user.findUnique({ where: { id: session.userId } });
-  if (!user || user.role !== 'ADMIN') throw new Error('Forbidden');
+  if (!user || (user.role !== 'ADMIN' && user.role !== 'OWNER')) throw new Error('Forbidden');
   return { session, user };
 }
 
 // ── User Role Update ──
 export async function updateUserRole(formData: FormData) {
   const { session } = await requireAdmin();
-  const targetUserId = formData.get('userId') as string;
-  const newRole = formData.get('role') as string;
+  const parsed = roleSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return;
+  const { userId: targetUserId, role: newRole } = parsed.data;
 
-  if (!targetUserId || !newRole) return;
   if (targetUserId === session.userId) throw new Error('Cannot change own role');
 
   await settingsService.updateUserRole(targetUserId, newRole);
@@ -39,15 +55,18 @@ export async function updateUserRole(formData: FormData) {
 export async function updateGlobalSettings(formData: FormData) {
   const { session } = await requireAdmin();
 
-  const maintenanceMode = formData.get('maintenanceMode') === 'true';
-  const siteName = formData.get('siteName') as string || 'Smmplan';
-  const siteDescription = formData.get('siteDescription') as string || '';
-  const welcomeMessage = formData.get('welcomeMessage') as string | null;
-
-  // Payment Gateways
-  const yookassaShopId = formData.get('yookassaShopId') as string | null;
-  const rawYookassaSecret = formData.get('yookassaSecretKey') as string | null;
-  const rawCryptoBotToken = formData.get('cryptoBotToken') as string | null;
+  const parsed = globalSettingsSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) throw new Error('Validation failed');
+  
+  const {
+    maintenanceMode,
+    siteName,
+    siteDescription,
+    welcomeMessage,
+    yookassaShopId,
+    yookassaSecretKey: rawYookassaSecret,
+    cryptoBotToken: rawCryptoBotToken
+  } = parsed.data;
 
   const dataToUpdate: any = { maintenanceMode, siteName, siteDescription };
   if (welcomeMessage !== null) dataToUpdate.welcomeMessage = welcomeMessage;

@@ -8,6 +8,21 @@ import { auditAdmin } from '@/lib/admin-audit';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { SignJWT } from 'jose';
+import { z } from 'zod';
+
+const updateBalanceSchema = z.object({
+  userId: z.string().min(1),
+  amount: z.coerce.number().int(),
+  reason: z.string().min(1)
+});
+
+const userIdSchema = z.object({
+  userId: z.string().min(1)
+});
+
+const entryIdSchema = z.object({
+  entryId: z.string().min(1)
+});
 
 const STAFF_ROLES = ['OWNER', 'ADMIN', 'MANAGER', 'SUPPORT'];
 const secretKey = process.env.JWT_SECRET || 'fallback-secret-for-dev-only-v2';
@@ -23,13 +38,14 @@ async function requireStaff() {
 
 export async function updateBalanceAction(formData: FormData) {
   const { user: admin } = await requireStaff();
-  const userId = formData.get('userId') as string;
-  const amount = parseInt(formData.get('amount') as string, 10);
-  const reason = formData.get('reason') as string;
-
-  if (!userId || isNaN(amount) || !reason?.trim()) {
+  const payload = Object.fromEntries(formData.entries());
+  const parsed = updateBalanceSchema.safeParse(payload);
+  
+  if (!parsed.success) {
     throw new Error('userId, amount (копейки) и reason обязательны');
   }
+
+  const { userId, amount, reason } = parsed.data;
 
   await escrowService.evaluateBalanceAdjustment(
     userId,
@@ -43,8 +59,10 @@ export async function updateBalanceAction(formData: FormData) {
 
 export async function banUserAction(formData: FormData) {
   const { user: admin } = await requireStaff();
-  const userId = formData.get('userId') as string;
-  if (!userId) throw new Error('Missing userId');
+  const parsed = userIdSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) throw new Error('Missing userId');
+  
+  const { userId } = parsed.data;
 
   await adminUserService.banUser(userId, {
     id: admin.id,
@@ -56,8 +74,10 @@ export async function banUserAction(formData: FormData) {
 
 export async function unbanUserAction(formData: FormData) {
   const { user: admin } = await requireStaff();
-  const userId = formData.get('userId') as string;
-  if (!userId) throw new Error('Missing userId');
+  const parsed = userIdSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) throw new Error('Missing userId');
+  
+  const { userId } = parsed.data;
 
   await adminUserService.unbanUser(userId, {
     id: admin.id,
@@ -73,8 +93,10 @@ export async function unbanUserAction(formData: FormData) {
  */
 export async function loginAsAction(formData: FormData) {
   const { user: admin } = await requireStaff();
-  const userId = formData.get('userId') as string;
-  if (!userId) throw new Error('Missing userId');
+  const parsed = userIdSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) throw new Error('Missing userId');
+  
+  const { userId } = parsed.data;
 
   // Only OWNER and ADMIN can impersonate
   if (!['OWNER', 'ADMIN'].includes(admin.role)) {
@@ -123,7 +145,9 @@ export async function loginAsAction(formData: FormData) {
 
 export async function approveQuarantineAction(formData: FormData) {
   const { user: admin } = await requireStaff();
-  const entryId = formData.get('entryId') as string;
+  const parsed = entryIdSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) throw new Error('Missing entryId');
+  const { entryId } = parsed.data;
 
   if (!['OWNER', 'ADMIN'].includes(admin.role)) {
     throw new Error('Только Владелец может модерировать карантин');
@@ -135,7 +159,9 @@ export async function approveQuarantineAction(formData: FormData) {
 
 export async function rejectQuarantineAction(formData: FormData) {
   const { user: admin } = await requireStaff();
-  const entryId = formData.get('entryId') as string;
+  const parsed = entryIdSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) throw new Error('Missing entryId');
+  const { entryId } = parsed.data;
 
   if (!['OWNER', 'ADMIN'].includes(admin.role)) {
     throw new Error('Только Владелец может модерировать карантин');

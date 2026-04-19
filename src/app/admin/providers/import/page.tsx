@@ -7,7 +7,8 @@ export const dynamic = "force-dynamic";
 
 export default async function ImportProvidersPage() {
   const categories = await db.category.findMany({
-      orderBy: [{ platform: 'asc' }, { sort: 'asc' }]
+      orderBy: [{ network: { slug: 'asc' } }, { sort: 'asc' }],
+      include: { network: true }
   });
 
   // Verify we have an active default provider

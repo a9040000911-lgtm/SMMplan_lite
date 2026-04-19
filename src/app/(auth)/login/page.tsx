@@ -4,7 +4,6 @@ export const metadata = {
   title: "Вход | SMMplan",
 };
 
-export const dynamic = "force-dynamic";
 
 export default function LoginPage() {
   return (

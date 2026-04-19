@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createCategory, updateCategory, deleteCategory } from "@/actions/admin/catalog/categories";
 
-export function CategoryManager({ categories }: { categories: any[] }) {
+export function CategoryManager({ categories, networks }: { categories: any[], networks: any[] }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -12,13 +12,13 @@ export function CategoryManager({ categories }: { categories: any[] }) {
   // Form states
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState("");
-  const [platform, setPlatform] = useState("");
+  const [networkId, setNetworkId] = useState(networks[0]?.id || "");
   const [sort, setSort] = useState("0");
 
   const resetForm = () => {
     setEditingId(null);
     setName("");
-    setPlatform("TELEGRAM");
+    setNetworkId(networks[0]?.id || "");
     setSort("0");
     setError(null);
   };
@@ -26,19 +26,19 @@ export function CategoryManager({ categories }: { categories: any[] }) {
   const handleEdit = (cat: any) => {
     setEditingId(cat.id);
     setName(cat.name);
-    setPlatform(cat.platform);
+    setNetworkId(cat.networkId);
     setSort(String(cat.sort));
     setError(null);
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !platform) return setError("Заполните все поля");
+    if (!name || !networkId) return setError("Заполните все поля");
     
     try {
       setLoading(true);
       setError(null);
-      const payload = { name, platform, sort: parseInt(sort, 10) || 0 };
+      const payload = { name, networkId, sort: parseInt(sort, 10) || 0 };
       
       if (editingId) {
         await updateCategory(editingId, payload);
@@ -86,17 +86,14 @@ export function CategoryManager({ categories }: { categories: any[] }) {
                 />
              </div>
              <div className="w-48">
-                <label className="block text-xs font-medium text-slate-700">Платформа</label>
+                <label className="block text-xs font-medium text-slate-700">Сеть (Network)</label>
                 <select 
-                   value={platform} onChange={e => setPlatform(e.target.value)}
+                   value={networkId} onChange={e => setNetworkId(e.target.value)}
                    className="mt-1 block w-full rounded-md border-slate-300 shadow-sm sm:text-sm border p-2"
                 >
-                   <option value="TELEGRAM">TELEGRAM</option>
-                   <option value="INSTAGRAM">INSTAGRAM</option>
-                   <option value="VK">VK</option>
-                   <option value="YOUTUBE">YOUTUBE</option>
-                   <option value="TIKTOK">TIKTOK</option>
-                   <option value="OTHER">OTHER</option>
+                   {networks.map(n => (
+                     <option key={n.id} value={n.id}>{n.name.toUpperCase()}</option>
+                   ))}
                 </select>
              </div>
              <div className="w-24">
@@ -140,7 +137,7 @@ export function CategoryManager({ categories }: { categories: any[] }) {
             {categories.map((c) => (
               <tr key={c.id}>
                 <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-slate-900">{c.name}</td>
-                <td className="whitespace-nowrap px-3 py-4 text-sm text-slate-500 font-mono">{c.platform}</td>
+                <td className="whitespace-nowrap px-3 py-4 text-sm text-slate-500 font-mono">{c.network?.slug?.toUpperCase() || '-'}</td>
                 <td className="whitespace-nowrap px-3 py-4 text-sm text-slate-500">{c.sort}</td>
                 <td className="whitespace-nowrap px-3 py-4 text-sm text-slate-500">{c._count.services}</td>
                 <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium">

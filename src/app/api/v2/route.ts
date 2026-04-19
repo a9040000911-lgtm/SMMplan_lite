@@ -150,11 +150,21 @@ async function handleAdd(user: any, formData: FormData) {
       });
 
       return newOrder.numericId;
+    }, {
+      // SERIALIZABLE prevents Double Spend: two parallel transactions
+      // trying to decrement the same balance will cause one to abort
+      // with a serialization failure, which Prisma auto-retries.
+      isolationLevel: 'Serializable',
     });
 
     return NextResponse.json({ order: orderNumericId });
   } catch (err: unknown) {
     if (err instanceof Error && err.message === 'INSUFFICIENT_FUNDS') {
+      return NextResponse.json({ error: 'Not enough funds on balance' }, { status: 400 });
+    }
+    // P2034: Serializable transaction conflict (concurrent balance writes)
+    // This is expected under high concurrency — treat as insufficient funds
+    if (err && typeof err === 'object' && 'code' in err && (err as any).code === 'P2034') {
       return NextResponse.json({ error: 'Not enough funds on balance' }, { status: 400 });
     }
     throw err;

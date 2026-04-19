@@ -48,12 +48,20 @@ async function main() {
   console.log(`Upserted Admin User: ${adminRawId}`);
 
   // 4. Sample Category and Service
+  let network = await prisma.network.findFirst({ where: { slug: 'instagram' } });
+  if (!network) {
+    network = await prisma.network.create({
+      data: { name: 'Instagram', slug: 'instagram', sort: 1 }
+    });
+    console.log('Created Network: Instagram');
+  }
+
   let category = await prisma.category.findFirst();
   if (!category) {
     category = await prisma.category.create({
       data: {
         name: 'Instagram Likes',
-        platform: 'INSTAGRAM',
+        networkId: network.id,
         sort: 1
       }
     });

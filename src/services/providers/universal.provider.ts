@@ -84,9 +84,9 @@ export class UniversalProvider implements IProvider {
     } catch (error: any) {
       clearTimeout(timeoutId);
       if (error.name === 'AbortError') {
-         throw new Error(`PROVIDER_NETWORK_ERROR: Timeout (60s) for ${this.config.name}`);
+         throw new Error(`PROVIDER_NETWORK_ERROR: Timeout (60s) for ${this.config.name}`, { cause: error });
       }
-      throw new Error(`Provider API Error: ${error.message}`);
+      throw new Error(`Provider API Error: ${error.message}`, { cause: error });
     }
   }
 
@@ -106,7 +106,7 @@ export class UniversalProvider implements IProvider {
     }
 
     const curr = (this.config as any).balanceCurrency || 'USD';
-    let cents = Math.round(balanceVal * 100);
+    const cents = Math.round(balanceVal * 100);
     // If provider uses RUB, they might send Kopecks or RUB based on API. Assuming float format for most panels (100.50)
     return { balance: cents, currency: curr };
   }

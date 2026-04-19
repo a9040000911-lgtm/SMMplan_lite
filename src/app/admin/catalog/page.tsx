@@ -1,8 +1,13 @@
 import { adminCatalogService } from '@/services/admin/catalog.service';
 import { updateMarkupAction, toggleServiceAction } from '@/actions/admin/catalog';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
+import {
+  Card as HeroCard,
+  CardContent,
+  Button as HeroButton
+} from "@heroui/react";
+import { CatalogTable } from './client-table';
 import { db } from '@/lib/db';
 import { TOTAL_MANDATORY_DEDUCTIONS, SAFETY_FLOOR_MARKUP, applyBeautifulRounding } from '@/lib/financial-constants';
 
@@ -44,55 +49,75 @@ export default async function AdminCatalogPage({ searchParams }: Props) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">🛒 Каталог услуг</h1>
-          <p className="text-slate-500 mt-1">
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 flex items-center gap-3">
+            <ShoppingCart className="w-8 h-8 text-sky-500" /> Каталог услуг
+          </h1>
+          <p className="text-slate-500 mt-2 text-sm font-medium">
             Всего: {stats.totalServices} • Активных: {stats.activeServices} • Категорий: {stats.categories}
           </p>
         </div>
         <div className="flex gap-3">
-          <Link href="/admin/providers" className="inline-flex justify-center rounded-md border border-slate-300 bg-white py-2 px-4 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50">
-            Настройка панелей
+          <Link href="/admin/providers">
+            <HeroButton variant="secondary" className="font-medium">
+              Настройка панелей
+            </HeroButton>
           </Link>
-          <Link href="/admin/catalog/categories" className="inline-flex justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700">
-            Категории
+          <Link href="/admin/catalog/categories">
+            <HeroButton variant="primary" className="font-medium shadow-sm">
+              Категории
+            </HeroButton>
           </Link>
         </div>
       </div>
 
-      {/* Markup Analytics Mini-Dashboard */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-        <div className="rounded-lg border border-slate-200 bg-white p-3 text-center">
-          <div className="text-2xl font-bold text-slate-800">{markupAnalytics.stats.total}</div>
-          <div className="text-[11px] text-slate-500 mt-0.5">Всего</div>
-        </div>
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-center">
-          <div className="text-2xl font-bold text-red-700">{markupAnalytics.stats.loss}</div>
-          <div className="text-[11px] text-red-600 mt-0.5">🔴 Убыток</div>
-        </div>
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-center">
-          <div className="text-2xl font-bold text-amber-700">{markupAnalytics.stats.thin}</div>
-          <div className="text-[11px] text-amber-600 mt-0.5">⚠️ Тонкая</div>
-        </div>
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-center">
-          <div className="text-2xl font-bold text-emerald-700">{markupAnalytics.stats.normal}</div>
-          <div className="text-[11px] text-emerald-600 mt-0.5">✅ Норма</div>
-        </div>
-        <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-center">
-          <div className="text-2xl font-bold text-blue-700">{markupAnalytics.stats.high}</div>
-          <div className="text-[11px] text-blue-600 mt-0.5">💰 Высокая</div>
-        </div>
-        <div className="rounded-lg border border-purple-200 bg-purple-50 p-3 text-center">
-          <div className="text-2xl font-bold text-purple-700">{markupAnalytics.stats.extreme}</div>
-          <div className="text-[11px] text-purple-600 mt-0.5">🚀 Топ</div>
-        </div>
-      </div>
+      {/* Markup Analytics Compact Strip using HeroUI Card */}
+      <HeroCard className="shadow-sm border border-default-200">
+        <CardContent className="flex flex-row flex-wrap items-center gap-x-6 gap-y-3 p-4 text-sm">
+          <div className="flex items-center gap-2 pr-6 border-r border-default-200 font-semibold tabular-nums">
+            <ShoppingCart className="w-4 h-4 text-default-400" /> {markupAnalytics.stats.total} Услуг
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-danger shadow-[0_0_8px_rgba(243,18,96,0.4)]" /> 
+            <span className="text-default-500">Убыток:</span> 
+            <strong className="tabular-nums">{markupAnalytics.stats.loss}</strong>
+          </div>
+          <div className="flex items-center gap-2">
+             <span className="w-2 h-2 rounded-full bg-warning" /> 
+             <span className="text-default-500">Тонкая:</span> 
+             <strong className="tabular-nums">{markupAnalytics.stats.thin}</strong>
+          </div>
+          <div className="flex items-center gap-2">
+             <span className="w-2 h-2 rounded-full bg-success" /> 
+             <span className="text-default-500">Норма:</span> 
+             <strong className="tabular-nums">{markupAnalytics.stats.normal}</strong>
+          </div>
+          <div className="flex items-center gap-2">
+             <span className="w-2 h-2 rounded-full bg-primary" /> 
+             <span className="text-default-500">Высокая:</span> 
+             <strong className="tabular-nums">{markupAnalytics.stats.high}</strong>
+          </div>
+          <div className="flex items-center gap-2">
+             <span className="w-2 h-2 rounded-full bg-secondary" /> 
+             <span className="text-default-500">Топ:</span> 
+             <strong className="tabular-nums">{markupAnalytics.stats.extreme}</strong>
+          </div>
+        </CardContent>
+      </HeroCard>
 
       {markupAnalytics.stats.loss > 0 && (
-        <div className="rounded-lg border border-red-300 bg-red-50 p-4">
-          <h3 className="text-sm font-semibold text-red-800 mb-2">⚠️ Услуги с наценкой ниже Safety Floor (убыточные после налогов):</h3>
-          <div className="text-xs text-red-700 space-y-1">
+        <div className="rounded-lg border border-rose-200/50 bg-rose-50/50 p-4 shadow-sm">
+          <h3 className="text-sm font-semibold text-rose-800 mb-2 flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-rose-500" /> 
+            Услуги с наценкой ниже Safety Floor (убыточные после налогов):
+          </h3>
+          <div className="text-sm text-slate-600 space-y-1.5 pl-3.5">
             {markupAnalytics.worstServices.slice(0, 5).map(ws => (
-              <div key={ws.id}>• <strong>{ws.name}</strong> — x{ws.markup.toFixed(1)} (нужно мин. x{SAFETY_MULTIPLIER.toFixed(1)}) [{ws.category}]</div>
+              <div key={ws.id}>
+                &bull; <strong className="text-slate-800">{ws.name}</strong> 
+                <span className="text-rose-600 font-medium ml-1">— x{ws.markup.toFixed(1)}</span> 
+                <span className="text-slate-400"> (нужно мин. x{SAFETY_MULTIPLIER.toFixed(1)}) </span> 
+                <span className="text-[11px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded ml-1">{ws.category}</span>
+              </div>
             ))}
           </div>
         </div>
@@ -104,155 +129,39 @@ export default async function AdminCatalogPage({ searchParams }: Props) {
       </div>
 
       {/* Search */}
-      <Card>
-        <CardContent className="pt-6">
+      <HeroCard className="mb-4 shadow-sm border border-default-200">
+        <CardContent className="p-4">
           <form className="flex gap-4">
             <input
               type="text"
               name="q"
               defaultValue={search}
               placeholder="🔍 Поиск по названию или ID..."
-              className="flex-1 px-4 py-2 text-sm border border-slate-200 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+              className="flex-1 px-4 py-2 text-sm border border-default-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none bg-default-50"
             />
-            <Button type="submit">Найти</Button>
+            <HeroButton type="submit" variant="primary">Найти</HeroButton>
           </form>
         </CardContent>
-      </Card>
+      </HeroCard>
+      <CatalogTable services={services} />
 
-      {/* Services Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Услуги ({services.length}{hasMore ? '+' : ''})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 text-left">
-                  <th className="py-3 px-2 font-medium text-slate-500">ID</th>
-                  <th className="py-3 px-2 font-medium text-slate-500">Название</th>
-                  <th className="py-3 px-2 font-medium text-slate-500">Категория</th>
-                  <th className="py-3 px-2 font-medium text-slate-500">Закуп $/1k</th>
-                  <th className="py-3 px-2 font-medium text-slate-500">Наценка</th>
-                  <th className="py-3 px-2 font-medium text-slate-500">Цена ₽/1k</th>
-                  <th className="py-3 px-2 font-medium text-slate-500">Мин–Макс</th>
-                  <th className="py-3 px-2 font-medium text-slate-500">Заказы</th>
-                  <th className="py-3 px-2 font-medium text-slate-500">Статус</th>
-                  <th className="py-3 px-2 font-medium text-slate-500">Действия</th>
-                </tr>
-              </thead>
-              <tbody>
-                {services.map(s => {
-                  const sellingPrice = calcSellingPrice(s.rate, s.markup, USD_TO_RUB);
-                  const roundedPrice = applyBeautifulRounding(sellingPrice);
-                  const margin = ((s.markup - 1) * 100).toFixed(0);
-                  const isBelowSafety = s.markup < SAFETY_MULTIPLIER;
-
-                  return (
-                    <tr key={s.id} className={`border-b border-slate-100 hover:bg-slate-50 ${!s.isActive ? 'opacity-50' : ''} ${isBelowSafety ? 'bg-red-50/50' : ''}`}>
-                      <td className="py-3 px-2 font-mono text-xs text-slate-600">
-                        #{s.numericId}
-                        {s.externalId && (
-                          <span className="block text-[10px] text-slate-400">ext: {s.externalId}</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-2 text-xs max-w-[200px]">
-                        <span className="font-medium truncate block">{s.name}</span>
-                        <div className="flex gap-1 mt-0.5">
-                          {s.isDripFeedEnabled && <span className="text-[9px] bg-purple-100 text-purple-700 px-1 rounded">Drip</span>}
-                          {s.isRefillEnabled && <span className="text-[9px] bg-green-100 text-green-700 px-1 rounded">Refill</span>}
-                        </div>
-                      </td>
-                      <td className="py-3 px-2 text-xs text-slate-600">{s.category.name}</td>
-                      <td className="py-3 px-2 text-xs font-mono">${s.rate.toFixed(4)}</td>
-                      <td className="py-3 px-2">
-                        {/* Inline markup edit form */}
-                        <form action={updateMarkupAction} className="flex items-center gap-1">
-                          <input type="hidden" name="serviceId" value={s.id} />
-                          <input
-                            type="number"
-                            name="markup"
-                            step="0.1"
-                            min="1.0"
-                            max="151.0"
-                            defaultValue={s.markup}
-                            className="w-16 px-1 py-0.5 text-xs border border-slate-200 rounded text-center"
-                          />
-                          <button
-                            type="submit"
-                            className="px-1.5 py-0.5 text-[10px] text-indigo-700 bg-indigo-50 border border-indigo-200 rounded hover:bg-indigo-100"
-                          >
-                            ✓
-                          </button>
-                        </form>
-                        <span className={`text-[10px] ${isBelowSafety ? 'text-red-500 font-bold' : 'text-slate-400'}`}>+{margin}%{isBelowSafety ? ' ⚠️' : ''}</span>
-                      </td>
-                      <td className="py-3 px-2 text-xs font-semibold">
-                        {roundedPrice.toFixed(2)} ₽
-                        {roundedPrice !== sellingPrice && (
-                          <span className="block text-[9px] text-slate-400 font-normal">({sellingPrice.toFixed(2)})</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-2 text-xs text-slate-500">
-                        {s.minQty.toLocaleString('ru-RU')} – {s.maxQty.toLocaleString('ru-RU')}
-                      </td>
-                      <td className="py-3 px-2 text-xs">{s._count.orders}</td>
-                      <td className="py-3 px-2">
-                        <span className={`inline-flex px-2 py-0.5 text-[10px] font-semibold rounded-full ${
-                          s.isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-700'
-                        }`}>
-                          {s.isActive ? 'Активна' : 'Выкл'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-2">
-                        <form action={toggleServiceAction}>
-                          <input type="hidden" name="serviceId" value={s.id} />
-                          <input type="hidden" name="isActive" value={s.isActive ? 'false' : 'true'} />
-                          <button
-                            type="submit"
-                            className={`px-2 py-1 text-[11px] font-medium rounded border transition-colors ${
-                              s.isActive
-                                ? 'text-red-700 bg-red-50 border-red-200 hover:bg-red-100'
-                                : 'text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100'
-                            }`}
-                          >
-                            {s.isActive ? 'Выкл' : 'Вкл'}
-                          </button>
-                        </form>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {services.length === 0 && (
-                  <tr>
-                    <td colSpan={10} className="py-12 text-center text-slate-400">
-                      {search ? `Ничего не найдено по "${search}"` : 'Каталог пуст'}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination */}
-          {(cursor || hasMore) && (
-            <div className="flex justify-between items-center mt-6 pt-4 border-t border-slate-200">
-              {cursor ? (
-                <Link href={`/admin/catalog?q=${encodeURIComponent(search)}`}
-                  className="px-3 py-1.5 text-sm text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50">
-                  ← В начало
-                </Link>
-              ) : <div />}
-              {hasMore && nextCursor && (
-                <Link href={`/admin/catalog?q=${encodeURIComponent(search)}&cursor=${nextCursor}`}
-                  className="px-3 py-1.5 text-sm text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
-                  Следующая →
-                </Link>
-              )}
-            </div>
+      {/* Pagination / Table Footer */}
+      {(cursor || hasMore) && (
+        <div className="flex justify-between items-center bg-default-50/50 px-4 py-3 border border-default-200 mt-4 rounded-lg">
+          {cursor ? (
+            <Link href={`/admin/catalog?q=${encodeURIComponent(search)}`}
+              className="px-3 py-1.5 text-xs font-semibold text-default-600 bg-background border border-default-300 rounded hover:bg-default-100 shadow-sm transition-all">
+              ← В начало
+            </Link>
+          ) : <div />}
+          {hasMore && nextCursor && (
+            <Link href={`/admin/catalog?q=${encodeURIComponent(search)}&cursor=${nextCursor}`}
+              className="px-3 py-1.5 text-xs font-semibold text-default-700 bg-background border border-default-300 rounded hover:bg-default-100 shadow-sm transition-all">
+              Дальше →
+            </Link>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      )}
     </div>
   );
 }

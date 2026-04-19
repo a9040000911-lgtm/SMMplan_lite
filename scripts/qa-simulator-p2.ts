@@ -83,8 +83,14 @@ async function simulatePillar2Affiliate() {
     }
   });
 
+  const network = await db.network.upsert({
+    where: { slug: 'test' },
+    update: {},
+    create: { name: 'Test', slug: 'test' }
+  });
+
   const category = await db.category.create({
-    data: { name: 'Test', platform: 'TEST' }
+    data: { name: 'Test', networkId: network.id }
   });
 
   // Create Service with 3.0 Markup (3x)
@@ -127,8 +133,14 @@ async function simulatePillar2Affiliate() {
 async function simulatePillar3CatalogSync() {
   console.log('\n--- 🧪 SIMULATING: PROVIDER CATALOG SYNC ---');
 
+  const syncNetwork = await db.network.upsert({
+    where: { slug: 'sync' },
+    update: {},
+    create: { name: 'Sync', slug: 'sync' }
+  });
+
   const category = await db.category.create({
-    data: { name: 'Catalog Sync', platform: 'SYNC' }
+    data: { name: 'Catalog Sync', networkId: syncNetwork.id }
   });
 
   // Internal matched service (Active in our DB, maps to externalId: "999")

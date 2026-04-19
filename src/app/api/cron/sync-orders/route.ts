@@ -4,12 +4,9 @@ import { orderSyncWorker } from '@/actions/order/sync-worker';
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
   
-  // Hardcoded simple check or rely on Vercel CRON_SECRET
-  // In Vercel, cron jobs send: Authorization: Bearer process.env.CRON_SECRET
-  if (
-    process.env.CRON_SECRET && 
-    authHeader !== `Bearer ${process.env.CRON_SECRET}`
-  ) {
+  // CRON_SECRET is MANDATORY — reject if not configured or mismatch
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

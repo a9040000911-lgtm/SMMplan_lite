@@ -13,25 +13,26 @@ export const dynamic = 'force-dynamic';
 export default async function AdminSettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; q?: string }>;
 }) {
-  const [users, settings, recentLogs] = await Promise.all([
-    settingsService.listUsers(),
+  const params = await searchParams;
+  const activeTab = params.tab || 'system';
+  const searchQuery = params.q || '';
+
+  const [staffUsers, users, settings, recentLogs] = await Promise.all([
+    settingsService.listStaffUsers(),
+    searchQuery ? settingsService.listUsers(searchQuery) : Promise.resolve([]),
     settingsService.getSystemSettings(),
     db.adminAuditLog.findMany({ orderBy: { createdAt: 'desc' }, take: 15 }),
   ]);
 
-  const params = await searchParams;
-  const activeTab = params.tab || 'system';
-
-  const staffUsers = users.filter((u) => ['OWNER', 'ADMIN', 'MANAGER', 'SUPPORT'].includes(u.role));
   const regularUsers = users.filter((u) => u.role === 'USER' || u.role === 'BANNED');
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto p-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">System Settings</h1>
-        <p className="text-slate-500">Configure core infrastructure, providers, and team limits.</p>
+        <h1 className="text-3xl font-bold tracking-tight">⚙️ Настройки системы</h1>
+        <p className="text-slate-500">Конфигурация инфраструктуры, интеграций и команды.</p>
       </div>
 
       {/* ── Custom URL-based Tabs ── */}
@@ -61,17 +62,17 @@ export default async function AdminSettingsPage({
         <div className="space-y-6 animate-in fade-in duration-300">
           <Card>
             <CardHeader>
-              <CardTitle>System Configuration</CardTitle>
-              <CardDescription>Site metadata and operational toggles.</CardDescription>
+              <CardTitle>Конфигурация системы</CardTitle>
+              <CardDescription>Метаданные сайта и операционные переключатели.</CardDescription>
             </CardHeader>
             <CardContent>
               <form action={updateGlobalSettings} className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="siteName">Site Name</Label>
+                  <Label htmlFor="siteName">Название сайта</Label>
                   <Input id="siteName" name="siteName" defaultValue={settings.siteName} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="siteDescription">Site Description (SEO)</Label>
+                  <Label htmlFor="siteDescription">Описание сайта (SEO)</Label>
                   <Input id="siteDescription" name="siteDescription" defaultValue={settings.siteDescription} />
                 </div>
                 <div className="flex items-center gap-3 col-span-full">
@@ -84,11 +85,11 @@ export default async function AdminSettingsPage({
                     className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600"
                   />
                   <Label htmlFor="maintenanceMode" className="text-amber-700 font-semibold cursor-pointer">
-                    🚧 Maintenance Mode (disables client access)
+                    🚧 Режим обслуживания (отключает доступ клиентов)
                   </Label>
                 </div>
                 <div className="col-span-full pt-4 border-t border-slate-100">
-                  <Button type="submit">Save System Settings</Button>
+                  <Button type="submit">Сохранить настройки</Button>
                 </div>
               </form>
             </CardContent>
@@ -102,13 +103,13 @@ export default async function AdminSettingsPage({
           {/* Telegram Bot */}
           <Card>
             <CardHeader className="bg-sky-50/50">
-              <CardTitle className="text-sky-900">Telegram Bot Parameters</CardTitle>
-              <CardDescription>Configure user-facing text for the omnichannel bot.</CardDescription>
+              <CardTitle className="text-sky-900">Параметры Telegram-бота</CardTitle>
+              <CardDescription>Настройка текстов для омниканального бота.</CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
               <form action={updateGlobalSettings} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="welcomeMessage">Welcome Message (/start)</Label>
+                  <Label htmlFor="welcomeMessage">Приветственное сообщение (/start)</Label>
                   <textarea
                     id="welcomeMessage"
                     name="welcomeMessage"
@@ -117,7 +118,7 @@ export default async function AdminSettingsPage({
                   />
                 </div>
                 <Button type="submit" variant="secondary" className="bg-sky-100 text-sky-800 hover:bg-sky-200">
-                  Save Bot Content
+                  Сохранить контент бота
                 </Button>
               </form>
             </CardContent>
@@ -126,8 +127,8 @@ export default async function AdminSettingsPage({
           {/* Payment Gateways */}
           <Card>
             <CardHeader>
-              <CardTitle>Payment Gateways</CardTitle>
-              <CardDescription>Keys are AES-256-GCM encrypted at rest.</CardDescription>
+              <CardTitle>Платёжные шлюзы</CardTitle>
+              <CardDescription>Ключи шифруются AES-256-GCM в хранилище.</CardDescription>
             </CardHeader>
             <CardContent>
               <form action={updateGlobalSettings} className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -159,7 +160,7 @@ export default async function AdminSettingsPage({
                   />
                 </div>
                 <div className="col-span-full pt-4 border-t border-slate-100">
-                  <Button type="submit">Save Gateways</Button>
+                  <Button type="submit">Сохранить шлюзы</Button>
                 </div>
               </form>
             </CardContent>
@@ -173,8 +174,8 @@ export default async function AdminSettingsPage({
         <div className="space-y-6 animate-in fade-in duration-300">
           <Card>
             <CardHeader>
-              <CardTitle>Staff & Trust Budgets (Escrow Guard)</CardTitle>
-              <CardDescription>Set daily limits (in cents) for manual balance adjustments.</CardDescription>
+              <CardTitle>Команда и лимиты доверия (Escrow Guard)</CardTitle>
+              <CardDescription>Дневные лимиты (в копейках) на ручные корректировки баланса.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -183,8 +184,8 @@ export default async function AdminSettingsPage({
                     <tr className="border-b border-slate-200 text-left">
                       <th className="py-3 px-2 font-medium text-slate-500">Email</th>
                       <th className="py-3 px-2 font-medium text-slate-500">Role</th>
-                      <th className="py-3 px-2 font-medium text-slate-500">Daily Escrow Limit (Cents)</th>
-                      <th className="py-3 px-2 font-medium text-slate-500 text-right">Action</th>
+                      <th className="py-3 px-2 font-medium text-slate-500">Дневной лимит (коп.)</th>
+                      <th className="py-3 px-2 font-medium text-slate-500 text-right">Действие</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -205,7 +206,7 @@ export default async function AdminSettingsPage({
                               defaultValue={u.supportLimitCents || 0} 
                               className="w-32 h-8 text-right font-mono" 
                             />
-                            <Button type="submit" variant="secondary" className="h-8 px-3 text-xs border border-slate-300">Save Limit</Button>
+                            <Button type="submit" variant="secondary" className="h-8 px-3 text-xs border border-slate-300">Сохранить</Button>
                           </form>
                         </td>
                       </tr>
@@ -218,20 +219,25 @@ export default async function AdminSettingsPage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Registered Users</CardTitle>
-              <CardDescription>Grant staff roles here.</CardDescription>
+              <CardTitle>Зарегистрированные пользователи</CardTitle>
+              <CardDescription>Назначение ролей персоналу. Воспользуйтесь поиском по Email.</CardDescription>
             </CardHeader>
             <CardContent>
+              <form className="flex gap-2 mb-4" action="/admin/settings" method="GET">
+                <input type="hidden" name="tab" value="team" />
+                <Input type="text" name="q" placeholder="Поиск по email..." defaultValue={searchQuery} className="h-9" />
+                <Button type="submit" variant="secondary" className="h-9 text-xs">Поиск</Button>
+              </form>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 text-left">
                       <th className="py-2 px-2 font-medium text-slate-500">Email</th>
-                      <th className="py-2 px-2 font-medium text-slate-500 text-right">Change Role</th>
+                      <th className="py-2 px-2 font-medium text-slate-500 text-right">Сменить роль</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {regularUsers.slice(0, 50).map((u) => (
+                    {regularUsers.map((u) => (
                       <tr key={u.id} className="border-b border-slate-100 hover:bg-slate-50">
                         <td className="py-3 px-2 text-xs">{u.email}</td>
                         <td className="py-3 px-2 flex justify-end">
@@ -242,11 +248,21 @@ export default async function AdminSettingsPage({
                               <option value="SUPPORT">SUPPORT</option>
                               <option value="MANAGER">MANAGER</option>
                             </select>
-                            <Button type="submit" variant="outline" className="text-xs h-8 px-3">Set</Button>
+                            <Button type="submit" variant="outline" className="text-xs h-8 px-3">Назначить</Button>
                           </form>
                         </td>
                       </tr>
                     ))}
+                    {regularUsers.length === 0 && searchQuery && (
+                      <tr>
+                        <td colSpan={2} className="py-4 text-center text-slate-500">Не найдено</td>
+                      </tr>
+                    )}
+                    {regularUsers.length === 0 && !searchQuery && (
+                      <tr>
+                        <td colSpan={2} className="py-4 text-center text-slate-400">Введите email для поиска</td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -260,8 +276,8 @@ export default async function AdminSettingsPage({
         <div className="space-y-6 animate-in fade-in duration-300">
           <Card>
             <CardHeader>
-              <CardTitle>Administrative Audit Log</CardTitle>
-              <CardDescription>Immutable record of critical staff actions.</CardDescription>
+              <CardTitle>Журнал аудита</CardTitle>
+              <CardDescription>Неизменяемая запись критических действий персонала.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
@@ -277,7 +293,7 @@ export default async function AdminSettingsPage({
                     </div>
                   </div>
                 ))}
-                {recentLogs.length === 0 && <p className="text-slate-500 text-sm py-4">No audit logs found.</p>}
+                {recentLogs.length === 0 && <p className="text-slate-500 text-sm py-4">Нет записей аудита.</p>}
               </div>
             </CardContent>
           </Card>

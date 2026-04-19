@@ -10,9 +10,7 @@ const schema = z.object({
 });
 
 export async function requestMagicLink(prevState: any, formData: FormData) {
-  const email = formData.get("email");
-
-  const parsed = schema.safeParse({ email });
+  const parsed = schema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) {
     return { error: parsed.error.errors[0].message, success: false };
   }

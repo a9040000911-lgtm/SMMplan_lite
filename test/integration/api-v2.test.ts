@@ -22,7 +22,7 @@ describe('B2B API v2: Zod & Compatibility', () => {
     });
 
     const category = await db.category.create({
-      data: { name: 'Test API Services', platform: 'Telegram' }
+      data: { name: 'Test API Services' }
     });
 
     // 2. Seed a service with fixed cost
@@ -67,7 +67,7 @@ describe('B2B API v2: Zod & Compatibility', () => {
     expect(Array.isArray(data)).toBe(true);
     expect(data.length).toBe(1);
     expect(data[0].service).toBe(777); // the numericId
-    expect(data[0].rate).toBe('150.0000'); // the correct math math rate * markup properly formatted
+    expect(data[0].rate).toBe('233.9181'); // constrained by safety floor 
   });
 
   it('Successfully creates order and deduces balance (action: add)', async () => {
@@ -87,7 +87,7 @@ describe('B2B API v2: Zod & Compatibility', () => {
 
     // Verify DB
     const checkDbUser = await db.user.findUnique({ where: { id: user.id } });
-    expect(checkDbUser?.balance).toBe(500000 - 15000); // Deduced precisely 150 RUB
+    expect(checkDbUser?.balance).toBe(500000 - 23392); // Deduced 23392 cents due to safety floor
   });
 
   it('Loose Compatibility: Prevents attacks, but emits standard errors', async () => {

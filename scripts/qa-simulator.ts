@@ -30,6 +30,7 @@ async function runValidations() {
   let testTierUser: any = null;
   let testCategory: any = null;
   let testService: any = null;
+  let testNetwork: any = null;
 
   try {
     // --- ARRANGE ---
@@ -48,8 +49,14 @@ async function runValidations() {
       }
     });
 
+    testNetwork = await db.network.upsert({
+      where: { slug: 'test' },
+      update: {},
+      create: { name: 'Test', slug: 'test' }
+    });
+
     testCategory = await db.category.create({
-      data: { name: 'Test Cat', platform: 'INSTAGRAM' }
+      data: { name: 'Test Cat', networkId: testNetwork.id }
     });
 
     testService = await db.service.create({
@@ -184,6 +191,7 @@ async function runValidations() {
     if (testUser) await db.payment.deleteMany({ where: { userId: testUser.id } });
     if (testService) await db.service.delete({ where: { id: testService.id } });
     if (testCategory) await db.category.delete({ where: { id: testCategory.id } });
+    if (testNetwork) await db.network.delete({ where: { id: testNetwork.id } });
     if (testUser) await db.user.delete({ where: { id: testUser.id } });
     if (testTierUser) await db.user.delete({ where: { id: testTierUser.id } });
   }

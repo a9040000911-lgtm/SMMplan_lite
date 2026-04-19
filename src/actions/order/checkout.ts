@@ -35,23 +35,23 @@ export async function calculatePriceAction(
  * 3. Create Payment as PENDING linked to Order
  * 4. Return payment data for frontend redirect to YooKassa/CryptoBot
  */
-export async function checkoutAction(
-  serviceId: string,
-  link: string,
-  quantity: number,
-  email: string,
-  promoCodeStr?: string,
-  runs?: number,
-  interval?: number,
-  gateway: string = 'yookassa'
-): Promise<{ 
-  success: boolean; 
-  orderId?: string; 
-  paymentId?: string;
-  paymentUrl?: string;
-  error?: string 
-}> {
-  try {
+import { z } from 'zod';
+import { createSafeAction } from '@/lib/safe-action';
+
+const checkoutSchema = z.object({
+  serviceId: z.string(),
+  link: z.string().url("Неверный формат ссылки"),
+  quantity: z.number().min(1),
+  email: z.string().email("Неверный email"),
+  promoCodeStr: z.string().optional(),
+  runs: z.number().int().positive().optional(),
+  interval: z.number().int().positive().optional(),
+  gateway: z.string().default('yookassa')
+});
+
+export const checkoutAction = async (input: z.infer<typeof checkoutSchema>) => {
+  return createSafeAction(checkoutSchema, input, async (data) => {
+    const { serviceId, link, quantity, email, promoCodeStr, runs, interval, gateway } = data;
     // 0. Rate limit
     const isAllowed = await RateLimitService.check("checkoutCore", 15, 60);
     if (!isAllowed) {
@@ -209,13 +209,9 @@ export async function checkoutAction(
     revalidatePath('/dashboard', 'layout');
 
     return { 
-      success: true, 
       orderId: result.orderId, 
       paymentId: result.paymentId,
       paymentUrl
     };
-  } catch (error: any) {
-    console.error('[Checkout] Error:', error);
-    return { success: false, error: error.message };
-  }
-}
+  });
+};

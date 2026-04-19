@@ -4,6 +4,11 @@ import { verifySession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { adminOrderService } from '@/services/admin/order.service';
 import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
+
+const orderIdSchema = z.object({
+  orderId: z.string().min(1),
+});
 
 const STAFF_ROLES = ['OWNER', 'ADMIN', 'MANAGER', 'SUPPORT'];
 
@@ -17,8 +22,9 @@ async function requireStaff() {
 
 export async function cancelOrderAction(formData: FormData) {
   const { user } = await requireStaff();
-  const orderId = formData.get('orderId') as string;
-  if (!orderId) throw new Error('Missing orderId');
+  const parsed = orderIdSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) throw new Error('Missing orderId');
+  const { orderId } = parsed.data;
 
   await adminOrderService.cancelOrder(orderId, {
     id: user.id,
@@ -30,8 +36,9 @@ export async function cancelOrderAction(formData: FormData) {
 
 export async function restartOrderAction(formData: FormData) {
   const { user } = await requireStaff();
-  const orderId = formData.get('orderId') as string;
-  if (!orderId) throw new Error('Missing orderId');
+  const parsed = orderIdSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) throw new Error('Missing orderId');
+  const { orderId } = parsed.data;
 
   await adminOrderService.restartOrder(orderId, {
     id: user.id,

@@ -14,12 +14,11 @@ describe('Financial Core: Marketing Service', () => {
         rate: 5.0, // Base provider cost is $5.00 per 1000 = 500 Cents
         minQty: 10,
         maxQty: 1000,
-        markup: 2.0,
+        markup: 5.0,
         isActive: true,
         category: {
           create: {
             name: 'Test Category',
-            platform: 'Test',
             sort: 0
           }
         }
@@ -49,31 +48,31 @@ describe('Financial Core: Marketing Service', () => {
   });
 
   it('Calculates base price correctly without discounts', async () => {
-    // Quantity 1000. Base rate is 500 (Provider) * 2.0 (Markup) = 1000 Cents
+    // Quantity 1000. Base rate is 500 (Provider) * 5.0 (Markup) = 2500 Cents
     const result = await marketingService.calculatePrice(null, testServiceId, 1000);
     
     expect(result.providerCostCents).toBe(500); // $5.00 
-    expect(result.originalTotalCents).toBe(1000); // 1000 Cents
-    expect(result.totalCents).toBe(1000); // 1000 Cents
+    expect(result.originalTotalCents).toBe(2500); // 2500 Cents
+    expect(result.totalCents).toBe(2500); // 2500 Cents
   });
 
   it('Applies standard 50% promo code correctly', async () => {
     const result = await marketingService.calculatePrice(null, testServiceId, 1000, 'SALE50');
     
     expect(result.providerCostCents).toBe(500);
-    expect(result.originalTotalCents).toBe(1000);
-    expect(result.totalCents).toBe(500); // 50% of 1000 = 500
-    expect(result.discountPercent).toBe(50);
+    expect(result.originalTotalCents).toBe(2500);
+    expect(result.totalCents).toBe(1750); // 50% discount capped at MAX_TOTAL_DISCOUNT (30%) = 1750
+    expect(result.discountPercent).toBe(30);
   });
 
   it('Calculates fractions correctly (e.g. quantity 50)', async () => {
     // 50 / 1000 = 0.05. 
     // cost = 500 * 0.05 = 25.
-    // sell = 1000 * 0.05 = 50.
+    // sell = 2500 * 0.05 = 125.
     const result = await marketingService.calculatePrice(null, testServiceId, 50);
     
     expect(result.providerCostCents).toBe(25);
-    expect(result.originalTotalCents).toBe(50);
-    expect(result.totalCents).toBe(50);
+    expect(result.originalTotalCents).toBe(125);
+    expect(result.totalCents).toBe(125);
   });
 });

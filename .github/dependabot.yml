@@ -1,0 +1,39 @@
+# Dependabot configuration — автоматическое обновление зависимостей
+# Стандарт: OWASP A06 (Vulnerable and Outdated Components)
+# Документация: https://docs.github.com/en/code-security/dependabot
+
+version: 2
+updates:
+  # npm dependencies
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Europe/Moscow"
+    # Группировка: patch/minor вместе, major — отдельно
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    # Лимит: не более 5 PR в неделю
+    open-pull-requests-limit: 5
+    # Авто-лейблы для удобства
+    labels:
+      - "dependencies"
+      - "automated"
+    # Reviewer — владелец проекта
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+
+  # GitHub Actions — тоже обновляем
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "ci"
+      - "automated"

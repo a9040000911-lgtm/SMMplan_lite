@@ -14,7 +14,7 @@ describe('Integration: Payment Webhooks & Idempotency', () => {
     
     // 1. Create a Category & Service
     const category = await db.category.create({
-      data: { name: 'Test', platform: 'SYS', sort: 0 }
+      data: { name: 'Test', sort: 0 }
     });
     const service = await db.service.create({
       data: {

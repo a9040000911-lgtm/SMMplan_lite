@@ -5,6 +5,14 @@ import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import sanitizeHtml from 'sanitize-html';
+import { z } from 'zod';
+
+const pageSchema = z.object({
+  id: z.string().optional(),
+  slug: z.string().min(1),
+  title: z.string().min(1),
+  content: z.string().min(1)
+});
 
 export async function savePage(formData: FormData) {
   const session = await verifySession();
@@ -13,12 +21,9 @@ export async function savePage(formData: FormData) {
   const user = await db.user.findUnique({ where: { id: session.userId } });
   if (!user || user.role !== 'ADMIN') throw new Error('Forbidden'); // Only full ADMIN can edit CMS
 
-  const pageId = formData.get('id') as string;
-  const slug = formData.get('slug') as string;
-  const title = formData.get('title') as string;
-  const rawContent = formData.get('content') as string;
-
-  if (!slug || !title || !rawContent) return;
+  const parsed = pageSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return;
+  const { id: pageId, slug, title, content: rawContent } = parsed.data;
 
   // Sanitize HTML to prevent XSS (OWASP A01)
   const content = sanitizeHtml(rawContent, {

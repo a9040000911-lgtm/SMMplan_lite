@@ -15,15 +15,27 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: smmplan_lite_prod_redis
+    restart: always
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - prod_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: smmplan_lite_prod_app:latest
     container_name: smmplan_lite_prod_app
     restart: always
     environment:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-smmplan_lite}?schema=public
+      - REDIS_URL=redis://redis:6379 
       - APP_ENCRYPTION_KEY=${APP_ENCRYPTION_KEY}
       - ADMIN_ALERT_BOT_TOKEN=${ADMIN_ALERT_BOT_TOKEN}
       - ADMIN_ALERT_CHAT_ID=${ADMIN_ALERT_CHAT_ID}
@@ -32,8 +44,11 @@ services:
       - YOO_SHOP_ID=${YOO_SHOP_ID}
       - YOO_SECRET_KEY=${YOO_SECRET_KEY}
       - CRYPTOBOT_TOKEN=${CRYPTOBOT_TOKEN}
+      - CRON_SECRET=${CRON_SECRET}
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   nginx:
@@ -42,10 +57,24 @@ services:
     restart: always
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/certbot/conf:/etc/letsencrypt
+      - ./nginx/certbot/www:/var/www/certbot
     depends_on:
       - app
 
+  certbot:
+    image: certbot/certbot
+    container_name: smmplan_lite_prod_certbot
+    restart: unless-stopped
+    volumes:
+      - ./nginx/certbot/conf:/etc/letsencrypt
+      - ./nginx/certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
 volumes:
   prod_postgres_data:
+  prod_redis_data:
+

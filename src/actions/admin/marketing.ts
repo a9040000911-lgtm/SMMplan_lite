@@ -3,7 +3,18 @@
 import { verifySession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { adminMarketingService } from '@/services/admin/marketing.service';
+import { auditAdmin } from '@/lib/admin-audit';
 import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
+
+const promoCodeSchema = z.object({
+  code: z.string().min(1),
+  type: z.enum(['DISCOUNT', 'VOUCHER']),
+  discountPercent: z.coerce.number().optional().default(0),
+  amount: z.coerce.number().int().optional().default(0),
+  maxUses: z.coerce.number().int().optional().default(1),
+  expiresAt: z.string().optional().transform(v => v ? new Date(v) : null)
+});
 
 async function requireAdmin() {
   const session = await verifySession();
@@ -16,15 +27,9 @@ async function requireAdmin() {
 export async function createPromoCode(formData: FormData) {
   const { session } = await requireAdmin();
   
-  const code = formData.get('code') as string;
-  const type = formData.get('type') as 'DISCOUNT' | 'VOUCHER';
-  const discountPercent = parseFloat(formData.get('discountPercent') as string) || 0;
-  const amount = parseInt(formData.get('amount') as string, 10) || 0;
-  const maxUses = parseInt(formData.get('maxUses') as string, 10) || 1;
-  const expiresAtStr = formData.get('expiresAt') as string;
-  const expiresAt = expiresAtStr ? new Date(expiresAtStr) : null;
-
-  if (!code || !type) return;
+  const parsed = promoCodeSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return;
+  const { code, type, discountPercent, amount, maxUses, expiresAt } = parsed.data;
 
   await adminMarketingService.createPromoCode({
     code,
@@ -42,7 +47,7 @@ export async function createPromoCode(formData: FormData) {
       action: 'PROMOCODE_CREATE',
       target: code,
       targetType: 'PROMO',
-      details: `Type: ${type}, Max: ${maxUses}`
+      newValue: `Type: ${type}, Max: ${maxUses}`
     }
   });
 
@@ -50,13 +55,28 @@ export async function createPromoCode(formData: FormData) {
 }
 
 export async function togglePromoCode(id: string, isActive: boolean) {
-  const { session } = await requireAdmin();
+  const { session, user } = await requireAdmin();
   await adminMarketingService.togglePromoCode(id, isActive);
+  auditAdmin({
+    adminId: user.id,
+    adminEmail: user.email,
+    action: isActive ? 'PROMOCODE_ENABLE' : 'PROMOCODE_DISABLE',
+    target: id,
+    targetType: 'SETTINGS',
+  });
   revalidatePath('/admin/marketing');
 }
 
 export async function processReferralPayout(userId: string, amount: number) {
-  const { session } = await requireAdmin();
+  const { session, user } = await requireAdmin();
   await adminMarketingService.processPayout(userId, session.userId, amount);
+  auditAdmin({
+    adminId: user.id,
+    adminEmail: user.email,
+    action: 'REFERRAL_PAYOUT',
+    target: userId,
+    targetType: 'USER',
+    newValue: { amountCents: amount },
+  });
   revalidatePath('/admin/marketing');
 }

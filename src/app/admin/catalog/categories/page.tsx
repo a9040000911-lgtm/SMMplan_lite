@@ -7,13 +7,16 @@ export const dynamic = "force-dynamic";
 export default async function CategoriesAdminPage() {
   const categories = await db.category.findMany({
     orderBy: [
-      { platform: 'asc' },
+      { network: { slug: 'asc' } },
       { sort: 'asc' }
     ],
     include: {
+      network: true,
       _count: { select: { services: true } }
     }
   });
+
+  const networks = await db.network.findMany({ orderBy: { sort: 'asc' } });
 
   return (
     <div className="space-y-6">
@@ -27,7 +30,7 @@ export default async function CategoriesAdminPage() {
         </Link>
       </div>
 
-      <CategoryManager categories={categories} />
+      <CategoryManager categories={categories} networks={networks} />
     </div>
   );
 }

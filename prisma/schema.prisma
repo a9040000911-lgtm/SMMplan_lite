@@ -76,16 +76,29 @@ model Session {
   @@index([userId])
 }
 
+model Network {
+  id          String     @id @default(cuid())
+  name        String     @unique // "Telegram"
+  slug        String     @unique // "telegram"
+  icon        String?    // SVG content or name
+  sort        Int        @default(0)
+  isActive    Boolean    @default(true)
+  categories  Category[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
 model Category {
   id          String    @id @default(cuid())
   name        String
-  platform    String    // e.g., "YOUTUBE", "INSTAGRAM", "OTHER"
+  networkId   String?
+  network     Network?  @relation(fields: [networkId], references: [id], onDelete: Cascade)
   sort        Int       @default(0)
   services    Service[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  @@index([platform])
+  @@index([networkId])
 }
 
 model Service {
@@ -140,7 +153,8 @@ model Order {
   numericId    Int      @unique @default(autoincrement())
   userId       String
   serviceId    String
-  externalId   String?  // ID from provider (like VexBoost)
+  externalId      String?  // ID from provider (like VexBoost)
+  dripExternalIds String[] @default([]) // History of run IDs for Drip-Feed
   link         String
   quantity     Int
   status       String   @default("AWAITING_PAYMENT") // AWAITING_PAYMENT, PENDING, IN_PROGRESS, COMPLETED, PARTIAL, CANCELED, ERROR

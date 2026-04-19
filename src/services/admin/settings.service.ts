@@ -2,8 +2,26 @@ import { db } from '@/lib/db';
 
 export class SettingsService {
   // ── User Management ──
-  async listUsers() {
+  async listUsers(search?: string) {
     return db.user.findMany({
+      where: search ? { email: { contains: search, mode: 'insensitive' } } : undefined,
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        balance: true,
+        supportLimitCents: true,
+        createdAt: true,
+        _count: { select: { orders: true, tickets: true } }
+      }
+    });
+  }
+
+  async listStaffUsers() {
+    return db.user.findMany({
+      where: { role: { in: ['OWNER', 'ADMIN', 'MANAGER', 'SUPPORT'] } },
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,

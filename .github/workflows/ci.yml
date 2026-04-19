@@ -56,3 +56,14 @@ jobs:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/smmplan_lite_test?schema=public
         # Minimal env vars required for tests
         APP_ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
+
+    - name: Audit Dependencies (OWASP A06)
+      run: npm audit --audit-level=high
+
+    - name: Production Build (12-Factor #5)
+      run: npm run build
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/smmplan_lite_test?schema=public
+        APP_ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
+        NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+

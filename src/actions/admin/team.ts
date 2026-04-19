@@ -4,6 +4,12 @@ import { verifySession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { auditAdmin } from '@/lib/admin-audit';
 import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
+
+const limitSchema = z.object({
+  userId: z.string().min(1),
+  limit: z.coerce.number().int(),
+});
 
 const STAFF_ROLES = ['OWNER', 'ADMIN', 'MANAGER', 'SUPPORT'];
 
@@ -22,12 +28,12 @@ export async function updateSupportLimit(formData: FormData) {
     throw new Error('Только Владелец может менять лимиты (Trust Budget)');
   }
 
-  const userId = formData.get('userId') as string;
-  const limitCents = parseInt(formData.get('limit') as string, 10);
-
-  if (!userId || isNaN(limitCents)) {
+  const parsed = limitSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) {
     throw new Error('Invalid parameters');
   }
+
+  const { userId, limit: limitCents } = parsed.data;
 
   const target = await db.user.findUniqueOrThrow({ where: { id: userId } });
 

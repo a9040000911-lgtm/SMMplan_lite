@@ -72,7 +72,8 @@ export async function GET(request: Request) {
         await db.order.update({
           where: { id: order.id },
           data: { 
-            externalId: res.externalId, // Overwrite with newest chunk ID
+            externalId: res.externalId, // keep latest as primary for backward compat
+            dripExternalIds: { push: res.externalId }, // Push new ID to the tracking array
             status: 'IN_PROGRESS',
             currentRun: nextRun,
             nextRunAt: finished ? null : new Date(Date.now() + order.interval * 60000)

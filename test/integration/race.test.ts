@@ -13,12 +13,12 @@ describe('Security & Concurrency (Race Conditions)', () => {
       data: {
         email: 'race.user@test.com',
         apiKey: 'RACE_SECRET_123',
-        balance: 15000, // 150 RUB
+        balance: 30000, // 300 RUB
       }
     });
 
     const category = await db.category.create({
-      data: { name: 'Race Test Services', platform: 'Telegram' }
+      data: { name: 'Race Test Services' }
     });
 
     // 2. Seed a service with fixed cost
@@ -27,7 +27,7 @@ describe('Security & Concurrency (Race Conditions)', () => {
         name: 'API Service Race',
         categoryId: category.id,
         rate: 100, 
-        markup: 1.5, // Total cost per 1k should be 150 RUB = 15000 cents
+        markup: 3.0, // Total cost per 1k should be 300 RUB = 30000 cents
         minQty: 10,
         maxQty: 10000,
         isActive: true,
@@ -53,7 +53,7 @@ describe('Security & Concurrency (Race Conditions)', () => {
 
   it('Prevents balance dropping below zero on parallel B2B requests (Double Spend Attack)', async () => {
     // Launch 10 simultaneous requests to buy a 1k item.
-    // The user ONLY has enough balance for 1 item (15000 cents).
+    // The user ONLY has enough balance for 1 item (30000 cents).
     
     // Create an array of 10 promises running exactly at the same time
     const promises = Array.from({ length: 10 }).map(() => makeRequest({ 
@@ -83,7 +83,7 @@ describe('Security & Concurrency (Race Conditions)', () => {
 
     // Verify DB
     const checkDbUser = await db.user.findUnique({ where: { id: user.id } });
-    expect(checkDbUser?.balance).toBe(0); // 15000 - 15000
+    expect(checkDbUser?.balance).toBe(0); // 30000 - 30000
     
     // Only 1 order should have been created
     const orders = await db.order.count({ where: { userId: user.id } });

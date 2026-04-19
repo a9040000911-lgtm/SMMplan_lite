@@ -94,9 +94,18 @@ export function SmartOrderForm() {
     const finalRuns = dripEnabled ? runs : undefined;
     const finalInterval = dripEnabled ? interval : undefined;
 
-    const res = await checkoutAction(serviceId, url, quantity, email, promoCode || undefined, finalRuns, finalInterval);
-    if (res.success && res.paymentUrl) {
-      window.location.href = res.paymentUrl; // Redirect to payment gateway
+    const res = await checkoutAction({
+      serviceId, 
+      link: url, 
+      quantity, 
+      email, 
+      promoCodeStr: promoCode || undefined, 
+      runs: finalRuns, 
+      interval: finalInterval,
+      gateway: "yookassa"
+    });
+    if (res.success && res.data?.paymentUrl) {
+      window.location.href = res.data.paymentUrl; // Redirect to payment gateway
     } else if (res.success) {
       router.push("/dashboard/orders");
     } else {

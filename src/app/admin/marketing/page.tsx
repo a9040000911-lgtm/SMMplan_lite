@@ -106,7 +106,7 @@ export default async function MarketingPage() {
                     </thead>
                     <tbody>
                       {promos.map(p => (
-                        <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-50">
+                        <tr key={p.id} className="hover:bg-slate-50/80 even:bg-slate-50/50 transition-colors">
                           <td className="py-2 px-2 font-mono font-semibold">{p.code}</td>
                           <td className="py-2 px-2">
                             <span className={`inline-flex px-2 py-0.5 text-[10px] rounded uppercase font-semibold ${p.type === 'DISCOUNT' ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700'}`}>

@@ -1,13 +1,17 @@
 import { db } from '@/lib/db';
 import { paginatedQuery, type PaginatedResult } from '@/lib/pagination';
 import { auditAdmin } from '@/lib/admin-audit';
-import type { Order, User, Service } from '@prisma/client';
+import type { Order, User, Service, Category, Network } from '@prisma/client';
 
 // ── Types ──
 
 export type AdminOrderRow = Order & {
   user: Pick<User, 'id' | 'email'>;
-  service: Pick<Service, 'id' | 'name' | 'numericId'>;
+  service: Pick<Service, 'id' | 'name' | 'numericId'> & {
+    category: Pick<Category, 'name'> & {
+      network: Pick<Network, 'name'> | null;
+    };
+  };
 };
 
 export type OrderSearchParams = {
@@ -42,17 +46,14 @@ export class AdminOrderService {
       if (!isNaN(numericId) && q === String(numericId)) {
         // Pure number → search by numericId
         where.numericId = numericId;
-      } else if (q.includes('@')) {
-        // Contains @ → search by user email
-        where.user = { email: { contains: q, mode: 'insensitive' } };
-      } else if (q.startsWith('http') || q.includes('.com') || q.includes('.ru')) {
-        // Looks like a URL → search by link
-        where.link = { contains: q, mode: 'insensitive' };
       } else {
-        // Fallback: search externalId or link
+        // Clean URL to handle protocol mismatches
+        const cleanSubstring = q.replace(/^https?:\/\//i, '').replace(/^www\./i, '');
+        
+        // Universal text search
         where.OR = [
           { externalId: { contains: q, mode: 'insensitive' } },
-          { link: { contains: q, mode: 'insensitive' } },
+          { link: { contains: cleanSubstring, mode: 'insensitive' } },
           { user: { email: { contains: q, mode: 'insensitive' } } },
         ];
       }
@@ -65,7 +66,14 @@ export class AdminOrderService {
       orderBy: { createdAt: 'desc' },
       include: {
         user: { select: { id: true, email: true } },
-        service: { select: { id: true, name: true, numericId: true } },
+        service: { 
+          select: { 
+            id: true, 
+            name: true, 
+            numericId: true,
+            category: { select: { name: true, network: { select: { name: true } } } }
+          } 
+        },
       },
     });
   }

@@ -46,7 +46,7 @@ export function ProviderForm({ initialData }: ProviderFormProps) {
       try {
         headersParsed = JSON.parse(formData.headersText || "{}");
       } catch (e) {
-        throw new Error("HTTP Заголовки должны быть в формате валидного JSON.");
+        throw new Error("HTTP Заголовки должны быть в формате валидного JSON.", { cause: e });
       }
 
       if (!initialData && !formData.apiKey) {

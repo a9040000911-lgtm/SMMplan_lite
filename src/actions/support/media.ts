@@ -6,6 +6,13 @@ import { ticketService } from '@/services/support/ticket.service';
 import { revalidatePath } from 'next/cache';
 import path from 'path';
 import fs from 'fs/promises';
+import { z } from 'zod';
+
+const mediaSchema = z.object({
+  ticketId: z.string().min(1),
+  file: z.instanceof(File),
+  text: z.string().optional().default('')
+});
 
 const ALLOWED_TYPES: Record<string, string[]> = {
   image: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
@@ -21,11 +28,9 @@ export async function uploadMedia(formData: FormData) {
   const session = await verifySession();
   if (!session) throw new Error('Unauthorized');
 
-  const ticketId = formData.get('ticketId') as string;
-  const file = formData.get('file') as File;
-  const text = (formData.get('text') as string) || '';
-
-  if (!ticketId || !file) throw new Error('Missing ticketId or file');
+  const parsed = mediaSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) throw new Error('Missing ticketId or file');
+  const { ticketId, file, text } = parsed.data;
 
   // Verify ticket access
   const ticket = await db.ticket.findUnique({ where: { id: ticketId } });

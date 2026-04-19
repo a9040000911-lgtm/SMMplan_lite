@@ -21,8 +21,8 @@ export default async function FinanceDashboard() {
   return (
     <div className="space-y-6 max-w-6xl mx-auto p-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Financial Accounting Dashboard</h1>
-        <p className="text-slate-500">Real-time metrics and strict Escrow Guard quarantine approvals.</p>
+        <h1 className="text-3xl font-bold tracking-tight">💰 Финансовый учёт</h1>
+        <p className="text-slate-500">Метрики в реальном времени и одобрение карантинных транзакций.</p>
       </div>
 
       {quarantineList.length > 0 && (
@@ -30,12 +30,12 @@ export default async function FinanceDashboard() {
           <CardHeader className="bg-rose-50/50">
             <CardTitle className="text-rose-900 flex items-center gap-2">
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-800">
-                {quarantineList.length} Pending
+                {quarantineList.length} ожидает
               </span>
-              Escrow Quarantine
+              Карантин Escrow
             </CardTitle>
             <CardDescription className="text-rose-700">
-              Transactions that exceeded the Support team's daily trust budget. Approve them to fund the client's balance.
+              Транзакции, превысившие дневной лимит доверия саппорта. Одобрите их для зачисления на баланс клиента.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
@@ -52,7 +52,7 @@ export default async function FinanceDashboard() {
                       <strong>Причина:</strong> {entry.reason}
                     </div>
                     <div className="text-xs text-slate-400">
-                      Initiated by: <code className="bg-slate-50 px-1 rounded">{entry.adminId}</code> 
+                       Инициатор: <code className="bg-slate-50 px-1 rounded">{entry.adminId}</code> 
                       {' • '} {entry.createdAt.toLocaleString('ru-RU')}
                     </div>
                   </div>
@@ -80,44 +80,44 @@ export default async function FinanceDashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Gross Revenue</CardTitle>
+            <CardTitle className="text-sm font-medium">Выручка (Gross)</CardTitle>
             <div className="h-4 w-4 text-emerald-500 rounded-full border-2 border-emerald-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatMoney(metrics.revenueGross)}</div>
-            <p className="text-xs text-muted-foreground">Original payments</p>
+            <p className="text-xs text-muted-foreground">Все поступления</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Refunds</CardTitle>
+            <CardTitle className="text-sm font-medium">Возвраты</CardTitle>
             <div className="h-4 w-4 text-rose-500 rounded-full border-2 border-rose-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-rose-500">-{formatMoney(metrics.refunds)}</div>
-            <p className="text-xs text-muted-foreground">Returned to wallets</p>
+            <p className="text-xs text-muted-foreground">Возвращено на балансы</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">COGS</CardTitle>
+            <CardTitle className="text-sm font-medium">Себестоимость</CardTitle>
             <div className="h-4 w-4 text-amber-500 rounded-full border-2 border-amber-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-amber-500">-{formatMoney(metrics.cogs)}</div>
-            <p className="text-xs text-muted-foreground">Provider cost</p>
+            <p className="text-xs text-muted-foreground">Расходы на провайдеров</p>
           </CardContent>
         </Card>
 
         <Card className="bg-slate-900 text-white">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Gross Margin</CardTitle>
+            <CardTitle className="text-sm font-medium">Валовая маржа</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatMoney(metrics.marginGross)}</div>
-            <p className="text-xs text-slate-400">Margin: {metrics.marginPercentage.toFixed(1)}%</p>
+            <p className="text-xs text-slate-400">Маржа: {metrics.marginPercentage.toFixed(1)}%</p>
           </CardContent>
         </Card>
       </div>
@@ -125,24 +125,24 @@ export default async function FinanceDashboard() {
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Net Profit Calculation</CardTitle>
-            <CardDescription>Subtracting Taxes and OPEX.</CardDescription>
+            <CardTitle>Расчёт чистой прибыли</CardTitle>
+            <CardDescription>С учётом налогов и операционных расходов.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex justify-between items-center py-2 border-b border-slate-100">
-              <span className="text-sm text-slate-500">Gross Margin</span>
+              <span className="text-sm text-slate-500">Валовая маржа</span>
               <span className="font-medium">{formatMoney(metrics.marginGross)}</span>
             </div>
             <div className="flex justify-between items-center py-2 border-b border-slate-100 text-rose-600">
-              <span className="text-sm">Taxes ({settings.taxRate}%)</span>
+              <span className="text-sm">Налоги ({settings.taxRate}%)</span>
               <span>-{formatMoney(metrics.taxes)}</span>
             </div>
             <div className="flex justify-between items-center py-2 border-b border-slate-100 text-rose-600">
-              <span className="text-sm">OPEX (Fixed)</span>
+              <span className="text-sm">OPEX (постоянные)</span>
               <span>-{formatMoney(metrics.opex)}</span>
             </div>
             <div className="flex justify-between items-center py-4 bg-emerald-50 px-4 rounded-md">
-              <span className="font-bold text-emerald-900">Net Profit</span>
+              <span className="font-bold text-emerald-900">Чистая прибыль</span>
               <span className="text-xl font-bold text-emerald-700">{formatMoney(metrics.profitNet)}</span>
             </div>
           </CardContent>
@@ -150,20 +150,20 @@ export default async function FinanceDashboard() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Accounting Settings</CardTitle>
-            <CardDescription>Update parameters to recalculate net profit.</CardDescription>
+            <CardTitle>Параметры учёта</CardTitle>
+            <CardDescription>Обновите параметры для пересчёта чистой прибыли.</CardDescription>
           </CardHeader>
           <CardContent>
             <form action={updateSystemSettings} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="taxRate">Tax Rate (%)</Label>
+                <Label htmlFor="taxRate">Ставка налога (%)</Label>
                 <Input type="number" step="0.1" id="taxRate" name="taxRate" defaultValue={settings.taxRate} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="opexMonthly">Monthly OPEX (RUB)</Label>
+                <Label htmlFor="opexMonthly">Ежемесячный OPEX (₽)</Label>
                 <Input type="number" step="1" id="opexMonthly" name="opexMonthly" defaultValue={Math.floor(settings.opexMonthly / 100)} />
               </div>
-              <Button type="submit" className="w-full">Save Settings</Button>
+              <Button type="submit" className="w-full">Сохранить</Button>
             </form>
           </CardContent>
         </Card>
