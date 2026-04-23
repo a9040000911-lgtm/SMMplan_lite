@@ -8,18 +8,7 @@ import { DripFeedSettings } from "@/components/orders/DripFeedSettings";
 import { PricingResult } from "@/services/marketing.service";
 import { useRouter } from "next/navigation";
 
-// Эти моки будут заменены запросами в БД
-const MOCK_CATEGORIES = [
-  { id: "c1", name: "YouTube Views", platform: IntelligencePlatform.YOUTUBE },
-  { id: "c2", name: "Instagram Likes", platform: IntelligencePlatform.INSTAGRAM },
-  { id: "c3", name: "Instagram Followers", platform: IntelligencePlatform.INSTAGRAM },
-];
-
-const MOCK_SERVICES = [
-  { id: "s1", categoryId: "c1", name: "High Retention Views", rate: 2.50, minQty: 1000, markup: 3.0 },
-  { id: "s2", categoryId: "c2", name: "Real Likes", rate: 0.50, minQty: 100, markup: 3.0 },
-  { id: "s3", categoryId: "c3", name: "Fast Followers", rate: 4.00, minQty: 50, markup: 3.0 },
-];
+import { getPublicCatalogAction, getServicesByCategoryAction, PublicCategory, PublicService } from "@/actions/order/catalog";
 
 export function SmartOrderForm() {
   const router = useRouter();
@@ -42,6 +31,19 @@ export function SmartOrderForm() {
   const [runs, setRuns] = useState(2);
   const [interval, setInterval] = useState(60);
 
+  // Real Catalog Data
+  const [catalog, setCatalog] = useState<PublicCategory[]>([]);
+  const [servicesMap, setServicesMap] = useState<Record<string, PublicService[]>>({});
+  const [loadingServices, setLoadingServices] = useState(false);
+
+  useEffect(() => {
+    getPublicCatalogAction().then(res => {
+      if (res.success && res.data) {
+        setCatalog(res.data);
+      }
+    });
+  }, []);
+
   // Debounced Analysis
   useEffect(() => {
     if (!url || url.length < 5) return;
@@ -62,12 +64,31 @@ export function SmartOrderForm() {
   }, [url]);
 
   const availableCategories = platform 
-    ? MOCK_CATEGORIES.filter(c => c.platform === platform)
-    : MOCK_CATEGORIES;
+    ? catalog.filter(c => c.platform === platform)
+    : catalog;
 
-  const availableServices = categoryId 
-    ? MOCK_SERVICES.filter(s => s.categoryId === categoryId)
-    : [];
+  const currentCategory = catalog.find(c => c.id === categoryId);
+  const availableServices = servicesMap[categoryId] || [];
+
+  // Lazy load services when category changes
+  useEffect(() => {
+    if (!categoryId) return;
+    if (servicesMap[categoryId]) return;
+
+    let cancelled = false;
+    setLoadingServices(true);
+    getServicesByCategoryAction(categoryId).then(services => {
+        if (!cancelled) {
+           setServicesMap(prev => ({ ...prev, [categoryId]: services }));
+           setLoadingServices(false);
+           if (services.length > 0) {
+               // Auto-select first service if none selected or invalid
+               setServiceId(prev => services.some(s => s.id === prev) ? prev : services[0].id);
+           }
+        }
+    });
+    return () => { cancelled = true; };
+  }, [categoryId, servicesMap]);
 
   // Live Pricing Calculation
   useEffect(() => {
@@ -84,7 +105,7 @@ export function SmartOrderForm() {
     return () => clearTimeout(t);
   }, [serviceId, quantity, promoCode]);
 
-  const selectedService = MOCK_SERVICES.find(s => s.id === serviceId);
+  const selectedService = availableServices.find(s => s.id === serviceId);
 
   const handleCheckout = async () => {
     if (!serviceId || quantity < (selectedService?.minQty || 0)) return;
@@ -160,7 +181,7 @@ export function SmartOrderForm() {
           </select>
         </div>
 
-        <div>
+        <div className="relative">
           <label className="block text-sm font-medium mb-2">Услуга</label>
           <select 
             className="w-full rounded-xl border border-zinc-300 px-4 py-2 disabled:bg-zinc-100"
@@ -168,11 +189,17 @@ export function SmartOrderForm() {
             onChange={(e) => setServiceId(e.target.value)}
             disabled={!categoryId}
           >
-            <option value="">Выберите услугу...</option>
-            {availableServices.map(s => (
-              <option key={s.id} value={s.id}>{s.name} (~{s.rate * s.markup}₽ за 1000)</option>
-            ))}
+            {loadingServices ? (
+                <option value="">Загрузка...</option>
+            ) : (
+                availableServices.map(s => (
+                  <option key={s.id} value={s.id}>{s.name} (~{s.pricePer1kRub}₽ за 1000)</option>
+                ))
+            )}
           </select>
+          {loadingServices && (
+            <div className="absolute top-10 right-10 w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+          )}
         </div>
       </div>
 

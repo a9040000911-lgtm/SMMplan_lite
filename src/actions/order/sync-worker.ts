@@ -117,16 +117,19 @@ export class OrderSyncWorker {
       
       const statuses = await provider.getStatuses(Array.from(allExternalIds));
 
+      const userTransactions = new Map<string, { updates: any[], estimatedRefund: number }>();
+
       for (const order of inProgressOrders) {
         let newLocalStatus = order.status;
         let totalRemainsToRefund = 0;
         let anyChunkFailed = false;
 
+        let updateData: any = null;
+        let localRefundAmount = 0;
+
         if (order.isDripFeed && order.dripExternalIds && order.dripExternalIds.length > 0) {
-           // Aggregate statuses across all chunks
            let completedChunks = 0;
            let finalFailedChunks = 0;
-           let totalRemainsToRefund = 0;
 
            for (const chunkId of order.dripExternalIds) {
               const chunkStatusData = statuses[chunkId];
@@ -145,7 +148,6 @@ export class OrderSyncWorker {
               }
            }
 
-           // Check if we have finished dispatching all chunks AND all dispatched chunks are final
            const allDispatchedFinalized = (completedChunks + finalFailedChunks) === order.dripExternalIds.length;
            const isFinishedDispatching = order.currentRun >= (order.runs || 0) && order.nextRunAt === null;
 
@@ -160,26 +162,13 @@ export class OrderSyncWorker {
            }
 
            if (newLocalStatus !== order.status) {
-              await db.$transaction(async (tx) => {
-                 const freshOrder = await tx.order.findUniqueOrThrow({ where: { id: order.id } });
-                 if (freshOrder.status === 'CANCELED' || freshOrder.status === 'PARTIAL' || freshOrder.status === 'ERROR') return;
-                 
-                 if (finalFailedChunks > 0 && totalRemainsToRefund > 0) {
-                    const refundRatio = Math.min(totalRemainsToRefund / freshOrder.quantity, 1);
-                    const refundAmount = Math.floor(freshOrder.charge * refundRatio);
-                    if (refundAmount > 0) {
-                      await tx.user.update({
-                        where: { id: freshOrder.userId },
-                        data: { balance: { increment: refundAmount }, totalSpent: { decrement: refundAmount } }
-                      });
-                    }
-                 }
-                 await tx.order.update({
-                    where: { id: order.id },
-                    data: { status: newLocalStatus, remains: totalRemainsToRefund }
-                 });
-              });
+              if (finalFailedChunks > 0 && totalRemainsToRefund > 0) {
+                 const refundRatio = Math.min(totalRemainsToRefund / order.quantity, 1);
+                 localRefundAmount = Math.floor(order.charge * refundRatio);
+              }
+              updateData = { status: newLocalStatus, remains: totalRemainsToRefund };
            }
+
         } else {
           // Standard Single Order Logic
           const extId = order.externalId as string;
@@ -196,62 +185,79 @@ export class OrderSyncWorker {
           else if (sLower === 'error') newLocalStatus = 'ERROR';
 
           if (newLocalStatus !== order.status || newStatusData.remains !== order.remains) {
-            
-            await db.$transaction(async (tx) => {
-              // Re-read order inside transaction to prevent double-refund race
-              const freshOrder = await tx.order.findUniqueOrThrow({
-                where: { id: order.id }
-              });
-
-              // If already refunded by another concurrent run, skip
-              if (freshOrder.status === 'CANCELED' || freshOrder.status === 'PARTIAL' || freshOrder.status === 'ERROR') {
-                return; // Already processed — idempotency guard
-              }
-
-              let refundAmount = 0;
-              // Lock user if we need to refund
-              if (newLocalStatus === 'CANCELED' || newLocalStatus === 'PARTIAL' || newLocalStatus === 'ERROR') {
-                  // Determine refund amount
-                  if (newLocalStatus === 'CANCELED' || newLocalStatus === 'ERROR') {
-                    refundAmount = freshOrder.charge; // Full refund
-                  } else if (newLocalStatus === 'PARTIAL') {
-                    // Partial refund based on remains ratio
-                    const refundRatio = newStatusData.remains / freshOrder.quantity;
-                    refundAmount = Math.floor(freshOrder.charge * refundRatio);
-                  }
-
-                  if (refundAmount > 0) {
-                    await tx.user.update({
-                      where: { id: freshOrder.userId },
-                      data: { 
-                        balance: { increment: refundAmount },
-                        totalSpent: { decrement: refundAmount }
-                      }
-                    });
-
-                    await tx.ledgerEntry.create({
-                      data: {
-                        userId: freshOrder.userId,
-                        amount: refundAmount,
-                        reason: `Возврат средств по заказу ${order.id} (статус ${newLocalStatus}) - Система`,
-                        status: 'APPROVED'
-                      }
-                    });
-                  }
-              }
-
-              // Update order
-              await tx.order.update({
-                where: { id: order.id },
-                data: {
-                  status: newLocalStatus,
-                  remains: newStatusData.remains,
-                  error: newStatusData.error || null,
-                }
-              });
-            }, { isolationLevel: 'Serializable' });
+             if (newLocalStatus === 'CANCELED' || newLocalStatus === 'ERROR') {
+                 localRefundAmount = order.charge; // Full refund fallback
+             } else if (newLocalStatus === 'PARTIAL') {
+                 const refundRatio = newStatusData.remains / order.quantity;
+                 localRefundAmount = Math.floor(order.charge * refundRatio);
+             }
+             updateData = { status: newLocalStatus, remains: newStatusData.remains, error: newStatusData.error || null };
           }
         }
+
+        if (updateData) {
+            const ut = userTransactions.get(order.userId) || { updates: [], estimatedRefund: 0 };
+            ut.updates.push({ orderId: order.id, updateData, localRefundAmount });
+            ut.estimatedRefund += localRefundAmount;
+            userTransactions.set(order.userId, ut);
+        }
+      }
+
+      // Execute exactly ONE transaction PER USER (Grouped Updates)
+      for (const [userId, ut] of userTransactions.entries()) {
+          try {
+             await db.$transaction(async (tx) => {
+                 let actualTotalRefund = 0;
+
+                 for (const item of ut.updates) {
+                     const freshOrder = await tx.order.findUniqueOrThrow({ where: { id: item.orderId } });
+                     
+                     // Idempotency: if already processed concurrently, skip
+                     if (freshOrder.status === 'CANCELED' || freshOrder.status === 'PARTIAL' || freshOrder.status === 'ERROR' || freshOrder.status === 'COMPLETED') {
+                         continue;
+                     }
+
+                     let actualRefundForOrder = 0;
+                     if (item.localRefundAmount > 0) {
+                         if (item.updateData.status === 'CANCELED' || item.updateData.status === 'ERROR') {
+                             actualRefundForOrder = freshOrder.charge;
+                         } else if (item.updateData.status === 'PARTIAL' && item.updateData.remains !== undefined) {
+                             const refundRatio = Math.min(item.updateData.remains / freshOrder.quantity, 1);
+                             actualRefundForOrder = Math.floor(freshOrder.charge * refundRatio);
+                         }
+
+                         if (actualRefundForOrder > 0) {
+                             actualTotalRefund += actualRefundForOrder;
+                             await tx.ledgerEntry.create({
+                               data: {
+                                 userId: freshOrder.userId,
+                                 amount: actualRefundForOrder,
+                                 reason: `Возврат средств по заказу ${item.orderId} (статус ${item.updateData.status}) - Система`,
+                                 status: 'APPROVED'
+                               }
+                             });
+                         }
+                     }
+
+                     await tx.order.update({
+                         where: { id: item.orderId },
+                         data: item.updateData
+                     });
+                 }
+
+                 if (actualTotalRefund > 0) {
+                     await tx.user.update({
+                         where: { id: userId },
+                         data: { 
+                           balance: { increment: actualTotalRefund },
+                           totalSpent: { decrement: actualTotalRefund }
+                         }
+                     });
+                 }
+             }, { isolationLevel: 'Serializable' });
+          } catch (txErr) {
+             console.error(`[SyncWorker] Grouped transaction failed for user ${userId}:`, txErr);
+          }
       }
     } catch (e: any) {
       console.error('[SyncWorker] Error pulling statuses:', e);

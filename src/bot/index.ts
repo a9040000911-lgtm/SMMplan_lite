@@ -2,112 +2,48 @@
  * (c) 2024-2026 Smmplan. All rights reserved.
  * Created by Artem (http://artmspektr.ru)
  * Unauthorized copying of this file is strictly prohibited.
+ *
+ * MIGRATED TO SMMPLAN LITE CORE (April 2026)
+ * Removed: BullMQ queues, @/workers, @/lib/prisma, multi-project bots,
+ *          startWebhookServer, SessionService, BotRegistry, CryptoService,
+ *          RedisSessionStore, projectMiddleware, moderationMiddleware
+ * Uses: db from @/lib/db, single-bot mode via TELEGRAM_BOT_TOKEN
  */
 import * as dotenv from 'dotenv';
 dotenv.config();
 
-import { Scenes, session, Telegraf, Context } from 'telegraf';
-import { prisma } from '@/lib/prisma';
-import { startWebhookServer, SessionService } from '@/services/core';
-import { bot, BotRegistry } from '@/services/bot/bot-registry';
-import { CryptoService } from '@/services/core';
-import { createLogger } from '@/lib/logger';
-import { RedisSessionStore } from './utils/redis-session';
+import { Scenes, session, Telegraf, Markup } from 'telegraf';
+import { db } from '@/lib/db';
 
-export interface SmmplanContext extends Context {
-    project?: any;
-    scene: Scenes.SceneContextScene<SmmplanContext, Scenes.WizardSessionData>;
-    wizard: Scenes.WizardContextWizard<SmmplanContext>;
+// Scenes — only import wizards that have been migrated to Lite core
+import { orderWizard, ORDER_WIZARD } from './scenes/order.wizard';
+// TODO: Migrate remaining wizards (deposit, support, referral, catalog) to Lite core
+// import { depositWizard } from './scenes/deposit.wizard';
+// import { supportWizard } from './scenes/support.wizard';
+// import { referralWizard } from './scenes/referral.wizard';
+// import { catalogWizard } from './scenes/catalog.wizard';
+
+// ── BOT INSTANCE ──
+const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+if (!TOKEN || TOKEN === 'dummy_token') {
+  console.warn('[Bot] TELEGRAM_BOT_TOKEN not set. Telegram bot will NOT start.');
 }
 
+export const bot = new Telegraf(TOKEN || 'dummy_token');
 
-const logger = createLogger('Bot');
-
-// Middleware
-import { projectMiddleware } from './middleware/project.middleware';
-import { moderationMiddleware } from './middleware/moderation.middleware';
-
-// Scenes
-import { orderWizard } from './scenes/order.wizard';
-import { depositWizard } from './scenes/deposit.wizard';
-import { supportWizard } from './scenes/support.wizard';
-import { autoWizard } from './scenes/auto.wizard';
-import { referralWizard } from './scenes/referral.wizard';
-import { bindEmailWizard } from './scenes/bind-email.wizard';
-import { catalogWizard } from './scenes/catalog.wizard';
-
-// Commands
-import { handleStart } from './commands/start.command';
-import { handleShop } from './commands/shop.command';
-import { handleAdmin } from './commands/admin.command';
-import { handleOrders } from './commands/orders.command';
-import { handleSupport } from './commands/support.command';
-import { handleCancel } from './commands/cancel.command';
-import { handleMassOrderCommand } from './commands/mass.command';
-import { handleReviewCommand } from './commands/review.command';
-
-// Handlers
-import { handleText } from './handlers/text.handler';
-import { handleMassOrderFile } from './commands/mass.command';
-import { registerCallbackHandlers } from './handlers/callback.handler';
-import { registerGuardianHandlers } from './handlers/guardian.handler';
-import { getProjectMenu } from './utils/menu.utils';
-
+// ── STAGE ──
 const stage = new Scenes.Stage<Scenes.WizardContext>([
   orderWizard as any,
-  depositWizard as any,
-  supportWizard as any,
-  autoWizard as any,
-  referralWizard as any,
-  bindEmailWizard as any,
-  catalogWizard as any
 ]);
 
-// --- MIDDLEWARE ---
-bot.use(async (ctx: any, next) => {
-  try {
-    const log = `[${new Date().toISOString()}] Update:${ctx.updateType} from:${ctx.from?.id} text:${ctx.message?.text || 'non-text'}\n`;
-  } catch (e: any) {
-    console.error('[Bot Middleware] Debug log append failed:', e.message);
-  }
-  return next();
-});
-bot.use(projectMiddleware);
-bot.use(moderationMiddleware);
-bot.use(session({ 
-  store: RedisSessionStore,
-  getSessionKey: (ctx: any) => {
-    if (ctx.from && ctx.chat) {
-      const projectId = ctx.project?.id || 'default';
-      return `${projectId}:${ctx.from.id}:${ctx.chat.id}`;
-    }
-    return undefined;
-  }
-}));
+// ── MIDDLEWARE ──
+bot.use(session());
 bot.use(stage.middleware() as any);
 
-// --- QUEUES ---
-import { orderQueue, syncQueue, auditQueue, balanceQueue, failoverQueue, scheduledOrderQueue } from '@/services/core/queues';
-import '../workers';
-
-export const startBackgroundTasks = async () => {
-  const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-  if (!TOKEN || TOKEN === 'dummy_token') return;
-
-  await orderQueue.add('process-pending', {}, { repeat: { every: 30000 } });
-  await syncQueue.add('sync-all', {}, { repeat: { every: 300000 } });
-  await auditQueue.add('daily-audit', {}, { repeat: { pattern: '0 3 * * *' } });
-  await syncQueue.add('retention-check', {}, { repeat: { pattern: '0 10 * * *' } });
-  await balanceQueue.add('check-low-balance', {}, { repeat: { every: 1800000 } });
-  await failoverQueue.add('check-stuck-orders', {}, { repeat: { every: 900000 } }); // Every 15 minutes
-  await syncQueue.add('check-auto-posts', {}, { repeat: { every: 300000 } });
-  await scheduledOrderQueue.add('check-scheduled', {}, { repeat: { every: 60000 } });
-};
-
-// Extract error handler for reuse across multiple instances
-const errorHandler = async (err: any, ctx: any) => {
+// ── ERROR HANDLER ──
+bot.catch(async (err: any, ctx: any) => {
   try {
-    const description = err?.response?.description || err?.message || "";
+    const description = err?.response?.description || err?.message || '';
     // Ignore common non-critical Telegram errors
     if (
       description.includes('query is too old') ||
@@ -120,207 +56,157 @@ const errorHandler = async (err: any, ctx: any) => {
       return;
     }
 
-    logger.error(`БОТ ОШИБКА [${ctx?.updateType || 'unknown'}]:`, { error: err, update: ctx?.update });
+    console.error(`[Bot] ERROR [${ctx?.updateType || 'unknown'}]:`, err);
 
-    // Try to notify user if context is available
     if (ctx && typeof ctx.reply === 'function') {
-      const menu = ctx.project ? getProjectMenu(ctx.project) : {};
-      await ctx.reply('⚠️ Произошла техническая ошибка. Мы уже исправляем её.', {
-        parse_mode: 'HTML',
-        ...menu
-      }).catch(() => { });
+      await ctx.reply('⚠️ Произошла техническая ошибка. Мы уже исправляем её.').catch(() => {});
     }
   } catch (e) {
-    console.error('Error in bot.catch handler:', e);
-  }
-};
-
-// Global Error Handler for default instance
-bot.catch(errorHandler);
-
-// --- COMMANDS ---
-bot.start(handleStart);
-bot.command('shop', handleShop);
-bot.command('admin', handleAdmin);
-bot.command('orders', handleOrders);
-bot.command('support', handleSupport);
-bot.command('cancel', handleCancel);
-bot.command('mass', handleMassOrderCommand);
-bot.command('review', handleReviewCommand);
-
-// --- HANDLERS ---
-bot.on('text', handleText);
-bot.on('document', async (ctx: any) => {
-  const state = await SessionService.get(ctx.from.id, ctx.project.id);
-  if (state?.isWaitingForMassOrder) {
-    return handleMassOrderFile(ctx, state);
+    console.error('[Bot] Error in catch handler:', e);
   }
 });
-registerCallbackHandlers(bot);
-registerGuardianHandlers(bot);
 
-// --- MULTI-BOT STARTUP ---
-const botCommands = [
-  { command: 'start', description: '🚀 Главное меню' },
-  { command: 'shop', description: '🛍 Магазин' },
-  { command: 'mass', description: '📊 Массовый заказ' },
-  { command: 'orders', description: '📦 Заказы' },
-  { command: 'support', description: '🆘 Поддержка' },
-  { command: 'guardian', description: '🛡 VIP Guardian' },
-  { command: 'cancel', description: '❌ Отмена' }
-];
+// ── COMMANDS ──
+bot.start(async (ctx: any) => {
+  const tgId = String(ctx.from.id);
 
-const launchedProjectBots = new Set<string>();
-
-async function startBotInstance(project: any) {
-  if (!project.botToken) return;
-
-  try {
-    if (launchedProjectBots.has(project.id)) return;
-    
-    let decryptedToken: string;
-    try {
-        decryptedToken = CryptoService.decrypt(project.botToken!);
-    } catch {
-        decryptedToken = project.botToken!; // Fallback in case of raw token
-    }
-
-    launchedProjectBots.add(project.id);
-    const instance = new Telegraf(decryptedToken);
-    instance.catch(errorHandler);
-
-    // FIX: Register instance in registry so BotRegistry.get(projectId) works
-    BotRegistry.register(project.id, instance);
-
-    await instance.telegram.setMyCommands(botCommands).catch(() => { });
-    instance.use((ctx: any, next) => { ctx.project = project; return next(); });
-    instance.use(bot.middleware());
-
-    // Use catch to prevent crash loop if launch fails
-    instance.launch().catch(e => {
-      logger.error(`ОШИБКА LAUNCH БОТА [${project.name}]:`, { error: e.message });
-      launchedProjectBots.delete(project.id);
+  // Upsert user by telegramId
+  let user = await db.user.findFirst({ where: { telegramId: tgId } });
+  if (!user) {
+    user = await db.user.upsert({
+      where: { email: `tg_${tgId}@smmplan.bot` },
+      update: { telegramId: tgId },
+      create: {
+        email: `tg_${tgId}@smmplan.bot`,
+        telegramId: tgId,
+      }
     });
-
-    logger.info(`БОТ ЗАПУЩЕН: ${project.name} (@${project.slug})`);
-  } catch (e: any) {
-    logger.error(`ОШИБКА ЗАПУСКА БОТА [${project.name}]:`, { error: e.message, response: e.response });
-    launchedProjectBots.delete(project.id);
   }
-}
 
-let isChecking = false;
-
-async function checkNewBots() {
-  if (isChecking) return;
-  isChecking = true;
-  try {
-    const projects = await prisma.project.findMany({
-      where: {
-        botToken: { not: null },
-        isActive: true
-      } as any,
-      take: 100
-    }) as any[];
-
-    for (const project of projects) {
-      if (project.botToken && !launchedProjectBots.has(project.id)) {
-        await startBotInstance(project);
+  await ctx.reply(
+    `👋 <b>Добро пожаловать в Smmplan!</b>\n\n` +
+    `💰 Ваш баланс: <b>${(user.balance / 100).toFixed(2)}₽</b>\n\n` +
+    `Используйте меню ниже:`,
+    {
+      parse_mode: 'HTML',
+      reply_markup: {
+        keyboard: [
+          [{ text: '🛍 Каталог' }, { text: '📦 Мои заказы' }],
+          [{ text: '💰 Пополнить' }, { text: '🆘 Поддержка' }],
+        ],
+        resize_keyboard: true,
       }
     }
-  } catch (e) {
-    logger.error('Ошибка при проверке новых ботов:', e);
-  } finally {
-    isChecking = false;
-  }
-}
+  );
+});
 
-async function startAllBots() {
-  logger.info('--- ИНИЦИАЛИЗАЦИЯ СИСТЕМЫ БОТОВ ---');
-  await checkNewBots();
-
-  // Periodically check for new bots every 60 seconds
-  setInterval(checkNewBots, 60000);
-}
-
-if (process.env.NODE_ENV !== 'test' && !process.env.NEXT_PHASE && process.env.SKIP_BOT !== 'true') {
-  startAllBots().then(async () => {
-    // Also start the default bot if configured
-    const defaultToken = process.env.TELEGRAM_BOT_TOKEN;
-    if (defaultToken && defaultToken !== 'dummy_token' && process.env.SKIP_BOT !== 'true') {
-
-      const projects = await prisma.project.findMany({
-      take: 200, select: { botToken: true, isActive: true } });
-      const activeBotTokens = projects
-        .filter(p => p.isActive && p.botToken)
-        .map(p => {
-          try { return CryptoService.decrypt(p.botToken!); } catch { return p.botToken!; }
-        });
-
-      if (activeBotTokens.includes(defaultToken)) {
-        logger.info('--- ГЛАВНЫЙ БОТ УЖЕ ЗАПУЩЕН (через Проект в БД) ---');
-      } else if (activeBotTokens.length > 0) {
-        // There are active project bots, but none match the .env token.
-        // This is likely an old "residual" token in .env.
-        logger.warn('--- ПРОПУСК БОТА ИЗ .env: токен не найден в активных проектах БД ---');
-        logger.warn('Чтобы запустить этот бот, добавьте его токен в настройки проекта в админ-панели.');
-      } else {
-        // No active projects with bots yet, allow .env as fallback/bootstrap
-        bot.launch().then(() => {
-          logger.info('--- ГЛАВНЫЙ БОТ ЗАПУЩЕН (.env token) ---');
-        }).catch(e => {
-          logger.error('ОШИБКА ЗАПУСКА ГЛАВНОГО БОТА:', e.message);
-        });
-      }
-    }
-
-    startBackgroundTasks();
-    startWebhookServer();
+bot.hears('🛍 Каталог', async (ctx: any) => {
+  // Show list of active services as simple buttons
+  const services = await db.service.findMany({
+    where: { isActive: true },
+    take: 20,
+    orderBy: { numericId: 'asc' },
+    select: { id: true, name: true, minQty: true, maxQty: true, isDripFeedEnabled: true }
   });
+  if (services.length === 0) return ctx.reply('😔 Каталог пока пуст.');
+
+  const buttons = services.map((s: any) => [Markup.button.callback(s.name, `order_svc_${s.id}`)]);
+  await ctx.reply('🛍 <b>Каталог услуг:</b>\nВыберите услугу для заказа:', {
+    parse_mode: 'HTML',
+    ...Markup.inlineKeyboard(buttons)
+  });
+});
+
+// Inline handler: Start order wizard with pre-selected service
+bot.action(/^order_svc_(.+)$/, async (ctx: any) => {
+  const serviceId = ctx.match[1];
+  const service = await db.service.findUnique({ where: { id: serviceId } });
+  if (!service) return ctx.answerCbQuery('Услуга не найдена');
+  await ctx.answerCbQuery();
+  return ctx.scene.enter(ORDER_WIZARD, { preSelectedService: service });
+});
+
+bot.hears('💰 Пополнить', async (ctx: any) => {
+  // TODO: Migrate deposit wizard to Lite core
+  await ctx.reply('💰 <b>Пополнение баланса</b>\n\nДля пополнения баланса используйте веб-интерфейс:\n' +
+    `${process.env.NEXT_PUBLIC_APP_URL || 'https://smmplan.ru'}/dashboard`, { parse_mode: 'HTML' });
+});
+bot.hears('🆘 Поддержка', async (ctx: any) => {
+  // TODO: Migrate support wizard to Lite core
+  await ctx.reply('🆘 <b>Поддержка</b>\n\nНапишите ваш вопрос на support@smmplan.ru или создайте тикет в веб-интерфейсе.', { parse_mode: 'HTML' });
+});
+bot.hears('📦 Мои заказы', async (ctx: any) => {
+  const tgId = String(ctx.from.id);
+  const user = await db.user.findFirst({ where: { telegramId: tgId } });
+  if (!user) return ctx.reply('Используйте /start для регистрации.');
+
+  const orders = await db.order.findMany({
+    where: { userId: user.id },
+    take: 10,
+    orderBy: { createdAt: 'desc' },
+    include: { service: { select: { name: true } } }
+  });
+
+  if (orders.length === 0) {
+    return ctx.reply('📦 У вас пока нет заказов.');
+  }
+
+  const statusEmoji: Record<string, string> = {
+    'PENDING': '🕐', 'IN_PROGRESS': '🔄', 'COMPLETED': '✅',
+    'PARTIAL': '⚠️', 'CANCELED': '❌', 'ERROR': '🔴',
+    'AWAITING_PAYMENT': '💳', 'PROVISIONING': '⏳'
+  };
+
+  let text = '📦 <b>Ваши последние заказы:</b>\n\n';
+  for (const o of orders) {
+    const emoji = statusEmoji[o.status] || '❓';
+    text += `${emoji} #${o.numericId} — ${o.service?.name || 'Услуга'}\n` +
+      `   ${o.quantity} шт. | ${(o.charge / 100).toFixed(2)}₽ | ${o.status}\n\n`;
+  }
+
+  await ctx.reply(text, { parse_mode: 'HTML' });
+});
+
+// ── LAUNCH ──
+if (process.env.NODE_ENV !== 'test' && !process.env.NEXT_PHASE && process.env.SKIP_BOT !== 'true') {
+  if (TOKEN && TOKEN !== 'dummy_token') {
+    bot.launch().then(() => {
+      console.log('[Bot] ✅ Telegram bot launched successfully');
+    }).catch((e: any) => {
+      console.error('[Bot] ❌ Failed to launch:', e.message);
+    });
+  }
 }
 
 /**
  * --- GRACEFUL SHUTDOWN ---
- * Обработка сигналов завершения от ОС (Docker/PM2)
+ * Handles SIGTERM/SIGINT signals from Docker/PM2/tini
  */
-import { stopAllWorkers } from '@/workers';
-
 async function handleShutdown(signal: string) {
-  logger.info(`--- СИГНАЛ ${signal} ПОЛУЧЕН. ПЛАВНАЯ ОСТАНОВКА ---`);
-  
+  console.log(`[Bot] --- Signal ${signal} received. Graceful shutdown ---`);
+
   try {
-    // 1. Останавливаем все воркеры BullMQ
-    await stopAllWorkers();
-    
-    // 2. Останавливаем основной бот
+    // 1. Stop the Telegram bot polling
     if (bot) {
-      logger.info('Остановка основного бота...');
-      await bot.stop(signal);
+      console.log('[Bot] Stopping bot polling...');
+      bot.stop(signal);
     }
-    
-    // 3. Останавливаем все проектные боты из реестра
-    const registry = BotRegistry.getAll();
-    for (const [projectId, instance] of registry) {
-      logger.info(`Остановка бота для проекта ${projectId}...`);
-      await instance.stop(signal);
-    }
-    
-        // 4. ОБЯЗАТЕЛЬНО закрываем пул коннектов к БД
+
+    // 2. Close database connection pool
     try {
-      await prisma.$disconnect();
-      logger.info('Prisma connection pool closed.');
+      await db.$disconnect();
+      console.log('[Bot] Prisma connection pool closed.');
     } catch (e) {
-      logger.error('Error disconnecting Prisma:', e);
+      console.error('[Bot] Error disconnecting Prisma:', e);
     }
-    logger.info('--- ВСЕ ПРОЦЕССЫ УСПЕШНО ОСТАНОВЛЕНЫ. ВЫХОД. ---');
+
+    console.log('[Bot] --- All processes stopped. Exiting. ---');
     process.exit(0);
   } catch (err) {
-    logger.error('Ошибка при плавной остановке:', err);
+    console.error('[Bot] Error during graceful shutdown:', err);
     process.exit(1);
   }
 }
 
 process.on('SIGTERM', () => handleShutdown('SIGTERM'));
 process.on('SIGINT', () => handleShutdown('SIGINT'));
-
-

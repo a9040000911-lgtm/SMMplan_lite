@@ -6,6 +6,7 @@ import { approveQuarantineAction, rejectQuarantineAction } from '@/actions/admin
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { SubmitButton } from '@/components/admin/submit-button';
 import { Check, X, Wallet } from 'lucide-react';
 import { AdminPageHeader } from '@/components/admin/page-header';
 
@@ -61,15 +62,15 @@ export default async function FinanceDashboard() {
                   <div className="flex gap-2">
                     <form action={rejectQuarantineAction}>
                       <input type="hidden" name="entryId" value={entry.id} />
-                      <Button size="sm" variant="outline" className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200">
+                      <SubmitButton size="sm" variant="outline" className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200" confirmMessage="Точно отклонить эти средства? Они НЕ будут зачислены на баланс клиента.">
                         <X className="w-4 h-4 mr-2" /> Отклонить
-                      </Button>
+                      </SubmitButton>
                     </form>
                     <form action={approveQuarantineAction}>
                       <input type="hidden" name="entryId" value={entry.id} />
-                      <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
+                      <SubmitButton size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm" confirmMessage="Зачислить эти средства на баланс пользователя?">
                         <Check className="w-4 h-4 mr-2" /> Одобрить
-                      </Button>
+                      </SubmitButton>
                     </form>
                   </div>
                 </div>

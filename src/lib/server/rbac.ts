@@ -5,7 +5,7 @@ import { verifySession } from "@/lib/session";
 
 async function getSessionUserId(): Promise<string | null> {
   const sessionUser = await verifySession();
-  return sessionUser ? sessionUser.id : null;
+  return sessionUser ? sessionUser.userId : null;
 }
 
 import { User } from "@prisma/client";

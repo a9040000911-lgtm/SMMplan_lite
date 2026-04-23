@@ -6,7 +6,7 @@ import { adminUserService } from '@/services/admin/user.service';
 import { escrowService } from '@/services/admin/escrow.service';
 import { auditAdmin } from '@/lib/admin-audit';
 import { revalidatePath } from 'next/cache';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { SignJWT } from 'jose';
 import { z } from 'zod';
 
@@ -47,12 +47,25 @@ export async function updateBalanceAction(formData: FormData) {
 
   const { userId, amount, reason } = parsed.data;
 
+  const reqHeaders = await headers();
+  const ipAddress = reqHeaders.get('x-forwarded-for') || reqHeaders.get('x-real-ip') || 'unknown';
+
   await escrowService.evaluateBalanceAdjustment(
     userId,
     amount,
     reason.trim(),
     admin
   );
+
+  auditAdmin({
+    adminId: admin.id,
+    adminEmail: admin.email,
+    action: 'UPDATE_BALANCE_REQUEST',
+    target: userId,
+    targetType: 'USER',
+    newValue: { amountCents: amount, reason: reason.trim() },
+    ipAddress
+  });
 
   revalidatePath('/admin/clients');
 }
@@ -64,9 +77,21 @@ export async function banUserAction(formData: FormData) {
   
   const { userId } = parsed.data;
 
+  const reqHeaders = await headers();
+  const ipAddress = reqHeaders.get('x-forwarded-for') || reqHeaders.get('x-real-ip') || 'unknown';
+
   await adminUserService.banUser(userId, {
     id: admin.id,
     email: admin.email,
+  });
+
+  auditAdmin({
+    adminId: admin.id,
+    adminEmail: admin.email,
+    action: 'BAN_USER',
+    target: userId,
+    targetType: 'USER',
+    ipAddress
   });
 
   revalidatePath('/admin/clients');
@@ -79,9 +104,21 @@ export async function unbanUserAction(formData: FormData) {
   
   const { userId } = parsed.data;
 
+  const reqHeaders = await headers();
+  const ipAddress = reqHeaders.get('x-forwarded-for') || reqHeaders.get('x-real-ip') || 'unknown';
+
   await adminUserService.unbanUser(userId, {
     id: admin.id,
     email: admin.email,
+  });
+
+  auditAdmin({
+    adminId: admin.id,
+    adminEmail: admin.email,
+    action: 'UNBAN_USER',
+    target: userId,
+    targetType: 'USER',
+    ipAddress
   });
 
   revalidatePath('/admin/clients');

@@ -5,7 +5,7 @@ import { analyzeUrl } from "@/actions/order/analyze-url";
 import { checkoutAction, calculatePriceAction } from "@/actions/order/checkout";
 import { IntelligencePlatform } from "@/services/analyzer/link-rules";
 import { PricingResult } from "@/services/marketing.service";
-import { getPublicCatalogAction, PublicCategory, PublicService } from "@/actions/order/catalog";
+import { getPublicCatalogAction, getServicesByCategoryAction, PublicCategory, PublicService } from "@/actions/order/catalog";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Info, Sparkles, CheckCircle2, ChevronRight, ShoppingCart, Tag } from "lucide-react";
@@ -23,6 +23,9 @@ export function SmartOrderFunnel({ initialEmail = "" }: { initialEmail?: string 
   
   const [categoryId, setCategoryId] = useState("");
   const [serviceId, setServiceId] = useState("");
+  
+  const [servicesMap, setServicesMap] = useState<Record<string, PublicService[]>>({});
+  const [loadingServices, setLoadingServices] = useState(false);
   
   const [quantity, setQuantity] = useState(100);
   const [emailForCheckout, setEmailForCheckout] = useState("");
@@ -145,8 +148,28 @@ export function SmartOrderFunnel({ initialEmail = "" }: { initialEmail?: string 
     : dbCatalog;
 
   const currentCategory = dbCatalog.find(c => c.id === categoryId);
-  const availableServices = currentCategory ? currentCategory.services : [];
 
+  // Lazy load services when category changes
+  useEffect(() => {
+    if (!categoryId) return;
+    if (servicesMap[categoryId]) return;
+
+    let cancelled = false;
+    setLoadingServices(true);
+    getServicesByCategoryAction(categoryId).then(services => {
+        if (!cancelled) {
+           setServicesMap(prev => ({ ...prev, [categoryId]: services }));
+           setLoadingServices(false);
+           if (services.length > 0) {
+               setServiceId(prev => services.some(s => s.id === prev) ? prev : services[0].id);
+           }
+        }
+    });
+
+    return () => { cancelled = true; };
+  }, [categoryId, servicesMap]);
+
+  const availableServices = servicesMap[categoryId] || [];
   const selectedService = availableServices.find(s => s.id === serviceId);
 
   // -- Обновление минимального количества при выборе услуги --
@@ -354,7 +377,7 @@ export function SmartOrderFunnel({ initialEmail = "" }: { initialEmail?: string 
                     <div className="grid sm:grid-cols-2 gap-4">
                        {availableServices.map(srv => {
                           const isSelected = serviceId === srv.id;
-                          const pricePer1000 = (srv.rate * srv.markup).toFixed(2);
+                          const pricePer1000 = srv.pricePer1kRub.toFixed(2);
                           
                           return (
                             <motion.button

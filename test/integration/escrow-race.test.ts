@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { db } from '@/lib/db';
-import { adminEscrowService } from '@/services/admin/escrow.service';
+import { escrowService } from '@/services/admin/escrow.service';
 
 describe('Admin Escrow Service (Security)', () => {
   let targetUser: any;
@@ -28,7 +28,7 @@ describe('Admin Escrow Service (Security)', () => {
     // Individually, 900 <= 1000, so it passes.
     // But together they equal 4500 cents, exceeding the 1000 limit.
     const promises = Array.from({ length: 5 }).map(() =>
-      adminEscrowService.evaluateBalanceAdjustment(
+      escrowService.evaluateBalanceAdjustment(
         targetUser.id,
         900,
         'Test race condition bypass',

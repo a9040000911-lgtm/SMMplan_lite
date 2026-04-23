@@ -14,7 +14,8 @@ export class PaymentService {
     userId: string, 
     isDevSandbox = false,
     gatewayType: 'yookassa' | 'cryptobot' = 'yookassa',
-    internalPaymentId?: string
+    internalPaymentId?: string,
+    metadataType?: string
   ): Promise<boolean> {
     try {
       // 1. Double-check against real gateway API in production
@@ -91,18 +92,17 @@ export class PaymentService {
           processedPaymentId = currentPayment.id;
           isOrderPayment = !!currentPayment.orderId;
           linkedOrderId = currentPayment.orderId || '';
+        } else if (metadataType === 'deposit') {
+          // [SECURITY] Deposit Webhook Exception: Allows top-up even if PENDING state was lost or not created correctly
+          const newPayment = await tx.payment.create({
+            data: { userId, amount, currency: 'RUB', status: 'SUCCEEDED', gatewayId, gateway: gatewayType }
+          });
+          processedPaymentId = newPayment.id;
+          isOrderPayment = false;
         } else {
-          // Direct deposit via webhook (no pre-existing internal ID)
-          try {
-            const newPay = await tx.payment.create({
-              data: { gatewayId, userId, amount, currency: 'RUB', gateway: gatewayType, status: 'SUCCEEDED' }
-            });
-            processedPaymentId = newPay.id;
-          } catch (e: any) {
-            // Prisma Unique Constraint Failure (P2002) - hit by race condition webhook
-            if (e.code === 'P2002') return;
-            throw e;
-          }
+          // [SECURITY] Orphan webhook rejected
+          console.error(`[SECURITY] Orphan webhook rejected for gatewayId: ${gatewayId}. No PENDING payment found.`);
+          throw new Error('ORPHAN_WEBHOOK: Stray webhooks are no longer allowed to credit accounts.');
         }
 
         // Award Referral Commission on successful new fund influx

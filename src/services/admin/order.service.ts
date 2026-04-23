@@ -97,7 +97,7 @@ export class AdminOrderService {
       }
 
       let refundCents = 0;
-      if (order.status === 'AWAITING_PAYMENT' || order.status === 'PENDING' || order.status === 'IN_PROGRESS') {
+      if (order.status === 'AWAITING_PAYMENT' || order.status === 'PENDING' || order.status === 'IN_PROGRESS' || order.status === 'PARTIAL') {
           // If IN_PROGRESS but remains/quantity exists, we partially refund
           if (order.status === 'IN_PROGRESS' || order.status === 'PARTIAL') {
             if (order.remains > 0 && order.quantity > 0) {

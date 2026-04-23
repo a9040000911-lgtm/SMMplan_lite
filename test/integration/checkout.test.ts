@@ -60,8 +60,8 @@ describe('Server Actions: Checkout Integration', () => {
       gateway: 'yookassa'
     });
 
-    expect(res.error).toBeUndefined();
     expect(res.success).toBe(true);
+    if (!res.success) throw new Error(res.error);
     if (res.success) {
       expect(res.data.paymentUrl).toContain('/api/dev/mock-payment');
     }
@@ -98,8 +98,8 @@ describe('Server Actions: Checkout Integration', () => {
       gateway: 'cryptobot'
     });
 
-    expect(res.error).toBeUndefined();
     expect(res.success).toBe(true);
+    if (!res.success) throw new Error(res.error);
     if (res.success) {
       expect(res.data.paymentUrl).toContain('/api/dev/mock-payment');
     }

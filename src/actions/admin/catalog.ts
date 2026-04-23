@@ -16,13 +16,7 @@ const toggleServiceSchema = z.object({
   isActive: z.any().transform(val => val === 'true' || val === 'on')
 });
 
-const importServicesSchema = z.object({
-  externalIds: z.string().min(1),
-  categoryId: z.string().min(1),
-  markup: z.coerce.number().optional().default(3.0)
-});
-
-const bulkUpdateMarkupSchema = z.object({
+/* importServicesSchema removed */const bulkUpdateMarkupSchema = z.object({
   categoryId: z.string().nullable().optional(),
   platform: z.string().nullable().optional(),
   markup: z.coerce.number().min(0).max(151.0)
@@ -66,24 +60,7 @@ export async function toggleServiceAction(formData: FormData) {
   revalidatePath('/admin/catalog');
 }
 
-export async function importServicesAction(formData: FormData) {
-  const { user } = await requireManager();
-  const parsed = importServicesSchema.safeParse(Object.fromEntries(formData.entries()));
-  if (!parsed.success) {
-    throw new Error('externalIds и categoryId обязательны');
-  }
-  const { externalIds: externalIdsRaw, categoryId, markup } = parsed.data;
-
-  const externalIds = externalIdsRaw.split(',').map((s: string) => s.trim()).filter(Boolean);
-
-  await adminCatalogService.importServices(externalIds, categoryId, markup, {
-    id: user.id,
-    email: user.email,
-  });
-
-  revalidatePath('/admin/catalog');
-}
-
+/* importServicesAction has been relocated to providers module */
 /**
  * Bulk update markup for all services in a category or platform.
  * Pass markup=0 to auto-calculate from Pricing Ladder.
@@ -100,13 +77,12 @@ export async function bulkUpdateMarkupAction(formData: FormData) {
   if (categoryId) filter.categoryId = categoryId;
   if (platform) filter.platform = platform;
 
-  const result = await adminCatalogService.bulkUpdateMarkup(filter, markup, {
+  await adminCatalogService.bulkUpdateMarkup(filter, markup, {
     id: user.id,
     email: user.email,
   });
 
   revalidatePath('/admin/catalog');
-  return result;
 }
 
 /**

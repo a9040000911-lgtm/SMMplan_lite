@@ -1,7 +1,8 @@
 import { adminCatalogService } from '@/services/admin/catalog.service';
-import { updateMarkupAction, toggleServiceAction } from '@/actions/admin/catalog';
+import { bulkUpdateMarkupAction } from '@/actions/admin/catalog';
 import { ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
+import { SubmitButton } from '@/components/admin/submit-button';
 import {
   Card as HeroCard,
   CardContent,
@@ -124,10 +125,10 @@ export default async function AdminCatalogPage({ searchParams }: Props) {
         💱 Курс USD/RUB: {USD_TO_RUB.toFixed(2)} (из настроек)
       </div>
 
-      {/* Search */}
+      {/* Search & Bulk Actions */}
       <HeroCard className="mb-4 shadow-sm border border-default-200">
-        <CardContent className="p-4">
-          <form className="flex gap-4">
+        <CardContent className="p-4 flex flex-col lg:flex-row gap-4 justify-between lg:items-center">
+          <form className="flex gap-4 lg:max-w-md w-full">
             <input
               type="text"
               name="q"
@@ -136,6 +137,23 @@ export default async function AdminCatalogPage({ searchParams }: Props) {
               className="flex-1 px-4 py-2 text-sm border border-default-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none bg-default-50"
             />
             <HeroButton type="submit" variant="primary">Найти</HeroButton>
+          </form>
+
+          <div className="hidden lg:block w-px h-8 bg-default-200" />
+
+          <form action={bulkUpdateMarkupAction} className="flex gap-3 items-center bg-default-50/50 border border-default-200 px-3 py-1.5 rounded-lg">
+            <span className="text-sm font-semibold text-default-700 whitespace-nowrap">Bulk маржа:</span>
+            <input 
+              type="number" 
+              step="0.1" 
+              name="markup" 
+              required 
+              placeholder="Множитель (напр. 3.5)" 
+              className="px-2 py-1.5 text-sm font-mono border border-default-200 bg-white rounded focus:ring-2 focus:ring-primary outline-none w-40" 
+            />
+            <SubmitButton size="sm" variant="outline" className="border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:text-indigo-800" confirmMessage="Вы уверены, что хотите применить этот множитель наценки КО ВСЕМ УСЛУГАМ? Это полностью перезапишет текущие цены!">
+              Применить ко всем
+            </SubmitButton>
           </form>
         </CardContent>
       </HeroCard>

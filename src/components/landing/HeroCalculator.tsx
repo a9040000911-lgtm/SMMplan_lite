@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { analyzeUrl } from "@/actions/order/analyze-url";
 import { checkoutAction, calculatePriceAction } from "@/actions/order/checkout";
 import type { PricingResult } from "@/services/marketing.service";
-import type { PublicCategory } from "@/actions/order/catalog";
+import { getServicesByCategoryAction } from "@/actions/order/catalog";
+import type { PublicCategory, PublicService } from "@/actions/order/catalog";
 import {
   Send,
   Instagram,
@@ -61,7 +62,30 @@ export function HeroCalculator({
   // Derived
   const cats = initialCatalog.filter((c) => c.platform === platform);
   const activeCat = initialCatalog.find((c) => c.id === categoryId);
-  const services = activeCat?.services ?? [];
+
+  // Lazy loading services
+  const [servicesMap, setServicesMap] = useState<Record<string, PublicService[]>>({});
+  const [loadingServices, setLoadingServices] = useState(false);
+
+  useEffect(() => {
+    if (!categoryId) return;
+    if (servicesMap[categoryId]) return;
+
+    let cancelled = false;
+    setLoadingServices(true);
+    getServicesByCategoryAction(categoryId).then(data => {
+        if (!cancelled) {
+            setServicesMap(prev => ({ ...prev, [categoryId]: data }));
+            setLoadingServices(false);
+            if (data.length > 0) {
+               setServiceId(prev => data.some(s => s.id === prev) ? prev : data[0].id);
+            }
+        }
+    });
+    return () => { cancelled = true; };
+  }, [categoryId, servicesMap]);
+
+  const services = servicesMap[categoryId] || [];
   const activeSrv = services.find((s) => s.id === serviceId);
 
 
@@ -114,7 +138,7 @@ export function HeroCalculator({
     }
   };
 
-  const fallbackPriceCents = activeSrv ? Math.round(activeSrv.rate * activeSrv.markup * qty * 100) / 1000 : 0;
+  const fallbackPriceCents = activeSrv ? Math.round(activeSrv.pricePer1kRub * (qty / 1000) * 100) : 0;
   const priceRub = pricing ? (pricing.totalCents / 100).toFixed(0) : (fallbackPriceCents / 100).toFixed(0);
   const oldPriceRub = pricing && pricing.discountPercent > 0
     ? (pricing.originalTotalCents / 100).toFixed(0) : null;
@@ -270,7 +294,7 @@ export function HeroCalculator({
                     </div>
                     <div className="space-y-1.5">
                       {(showAllServices ? services : services.slice(0, 3)).map((srv, i) => {
-                        const price = (srv.rate * srv.markup).toFixed(1);
+                        const price = srv.pricePer1kRub.toFixed(1);
                         const sel = serviceId === srv.id;
                         return (
                           <button

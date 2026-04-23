@@ -26,16 +26,18 @@ export default function NewOrderPage() {
           >
             Умный Заказ
           </button>
-          <button
-            onClick={() => setActiveTab("mass")}
-            className={`px-6 py-2.5 rounded-xl font-medium text-sm transition-all ${
-              activeTab === "mass" 
-                ? "bg-white text-zinc-900 shadow-sm border border-zinc-200/60" 
-                : "text-zinc-500 hover:text-zinc-800"
-            }`}
-          >
-            Массовый заказ
-          </button>
+          {false && (
+            <button
+              onClick={() => setActiveTab("mass")}
+              className={`px-6 py-2.5 rounded-xl font-medium text-sm transition-all ${
+                activeTab === "mass" 
+                  ? "bg-white text-zinc-900 shadow-sm border border-zinc-200/60" 
+                  : "text-zinc-500 hover:text-zinc-800"
+              }`}
+            >
+              Массовый заказ
+            </button>
+          )}
         </div>
 
         <div>

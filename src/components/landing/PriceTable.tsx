@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChevronDown } from "lucide-react";
-import type { PublicCategory } from "@/actions/order/catalog";
+import { getServicesByCategoryAction } from "@/actions/order/catalog";
+import type { PublicCategory, PublicService } from "@/actions/order/catalog";
 
 const PLATFORM_TABS = [
   { id: "TELEGRAM", label: "Telegram" },
@@ -17,8 +18,25 @@ const MAX_CATEGORIES = 5;
 
 function CategoryBlock({ cat }: { cat: PublicCategory }) {
   const [expanded, setExpanded] = useState(false);
-  const visible = expanded ? cat.services : cat.services.slice(0, MAX_SERVICES_PER_CAT);
-  const hasMore = cat.services.length > MAX_SERVICES_PER_CAT;
+  const [services, setServices] = useState<PublicService[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    getServicesByCategoryAction(cat.id).then(res => {
+      if (!cancelled) {
+        setServices(res);
+        setLoading(false);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [cat.id]);
+
+  const visible = expanded ? services : services.slice(0, MAX_SERVICES_PER_CAT);
+  const hasMore = services.length > MAX_SERVICES_PER_CAT;
+
+  if (loading) return null;
+  if (services.length === 0) return null;
 
   return (
     <div>
@@ -27,7 +45,7 @@ function CategoryBlock({ cat }: { cat: PublicCategory }) {
       </h3>
       <div className="space-y-2">
         {visible.map((srv) => {
-          const price = (srv.rate * srv.markup).toFixed(1);
+          const price = srv.pricePer1kRub.toFixed(1);
           return (
             <div
               key={srv.id}
@@ -57,7 +75,7 @@ function CategoryBlock({ cat }: { cat: PublicCategory }) {
           onClick={() => setExpanded(!expanded)}
           className="mt-2 text-xs text-blue-600 font-medium flex items-center gap-1 hover:text-blue-700 transition-colors px-1"
         >
-          {expanded ? "Свернуть" : `Ещё ${cat.services.length - MAX_SERVICES_PER_CAT}`}
+          {expanded ? "Свернуть" : `Ещё ${services.length - MAX_SERVICES_PER_CAT}`}
           <ChevronDown
             className={`w-3 h-3 transition-transform ${expanded ? "rotate-180" : ""}`}
           />

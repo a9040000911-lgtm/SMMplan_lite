@@ -2,14 +2,14 @@
 
 import { db } from "@/lib/db";
 import { IntelligencePlatform } from "@/services/analyzer/link-rules";
+import { applyBeautifulRounding, USD_TO_RUB } from "@/lib/financial-constants";
 
 export type PublicService = {
   id: string;
   categoryId: string;
   name: string;
-  rate: number;
+  pricePer1kRub: number;
   minQty: number;
-  markup: number;
   description: string | null;
   speed: string;
   badge: string;
@@ -26,12 +26,11 @@ export type PublicCategory = {
 export async function getPublicCatalogAction() {
   try {
     const rawCategories = await db.category.findMany({
+      where: {
+        services: { some: { isActive: true } }
+      },
       include: {
-        network: true,
-        services: {
-          where: { isActive: true },
-          orderBy: { rate: 'asc' }
-        }
+        network: true
       },
       orderBy: {
         sort: 'asc'
@@ -39,7 +38,6 @@ export async function getPublicCatalogAction() {
     });
 
     const catalog: PublicCategory[] = rawCategories
-      .filter(c => c.services.length > 0) // Only return categories that have active services
       .map(c => {
         let platformName = c.network?.name;
         // fallback matching if no network is linked directly
@@ -73,25 +71,7 @@ export async function getPublicCatalogAction() {
           name: c.name,
           platform: mappedPlatform,
           icon,
-          services: c.services.map(s => {
-             // Mock some random visual badges based on price for the "Ozon" effect automatically
-             let badge = "";
-             if (s.name.toLowerCase().includes('гарант')) badge = "ГАРАНТИЯ";
-             else if (s.rate < 0.1) badge = "ХИТ";
-             else if (s.rate > 2.0) badge = "ПРЕМИУМ";
-
-             return {
-                id: s.id,
-                categoryId: s.categoryId,
-                name: s.name,
-                description: s.description,
-                rate: s.rate,
-                minQty: s.minQty,
-                markup: s.markup,
-                speed: s.name.toLowerCase().includes('быстр') ? 'Сразу' : 'В течение часа',
-                badge
-             };
-          })
+          services: [] // Services are now loaded lazily via getServicesByCategoryAction
         };
       });
 
@@ -99,5 +79,36 @@ export async function getPublicCatalogAction() {
   } catch (error: any) {
     console.error("Failed to fetch public catalog:", error);
     return { success: false, error: "Failed to load catalog" };
+  }
+}
+
+export async function getServicesByCategoryAction(categoryId: string): Promise<PublicService[]> {
+  try {
+    const services = await db.service.findMany({
+      where: { categoryId, isActive: true },
+      orderBy: { rate: 'asc' },
+      take: 100
+    });
+
+    return services.map(s => {
+       let badge = "";
+       if (s.name.toLowerCase().includes('гарант')) badge = "ГАРАНТИЯ";
+       else if (s.rate < 0.1) badge = "ХИТ";
+       else if (s.rate > 2.0) badge = "ПРЕМИУМ";
+
+       return {
+          id: s.id,
+          categoryId: s.categoryId,
+          name: s.name,
+          description: s.description,
+          pricePer1kRub: applyBeautifulRounding(s.rate * s.markup * USD_TO_RUB),
+          minQty: s.minQty,
+          speed: s.name.toLowerCase().includes('быстр') ? 'Сразу' : 'В течение часа',
+          badge
+       };
+    });
+  } catch (error) {
+    console.error("Failed to fetch services:", error);
+    return [];
   }
 }

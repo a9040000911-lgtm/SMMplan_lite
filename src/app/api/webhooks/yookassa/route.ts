@@ -29,13 +29,14 @@ export async function POST(req: NextRequest) {
       
       const userId = rawBody.object.metadata?.userId;
       const internalPaymentId = rawBody.object.metadata?.paymentId;
+      const metadataType = rawBody.object.metadata?.type;
 
       if (!userId || !gatewayId) {
         return NextResponse.json({ error: 'Missing userId or gatewayId in metadata' }, { status: 400 });
       }
 
       // Safe confirmation using Double-Check Logic
-      const success = await paymentService.confirmPayment(gatewayId, amount, userId, false, 'yookassa', internalPaymentId);
+      const success = await paymentService.confirmPayment(gatewayId, amount, userId, false, 'yookassa', internalPaymentId, metadataType);
 
       if (success) {
         return NextResponse.json({ success: true, status: 'Payment processed strictly' }, { status: 200 });

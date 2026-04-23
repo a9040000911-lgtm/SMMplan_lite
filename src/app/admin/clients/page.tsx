@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { AdminPageHeader } from '@/components/admin/page-header';
 import { ClientTable } from './components/client-table';
 import { Users, Download, Search, Key, Ban, UserCheck, CreditCard, ShoppingBag } from 'lucide-react';
+import { SubmitButton } from '@/components/admin/submit-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -121,23 +122,23 @@ export default async function AdminClientsPage({ searchParams }: Props) {
                     <div className="flex gap-2 pt-2">
                       <form action={loginAsAction} className="flex-1">
                         <input type="hidden" name="userId" value={userCard.id} />
-                        <Button type="submit" variant="outline" className="w-full text-xs h-9">
+                        <SubmitButton variant="outline" className="w-full text-xs h-9">
                           🔑 Войти как
-                        </Button>
+                        </SubmitButton>
                       </form>
                       {userCard.role === 'BANNED' ? (
                         <form action={unbanUserAction}>
                           <input type="hidden" name="userId" value={userCard.id} />
-                          <Button type="submit" variant="outline" className="text-xs h-9 text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50">
+                          <SubmitButton variant="outline" className="text-xs h-9 text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50" confirmMessage="Снять блокировку с этого пользователя?">
                             Разбанить
-                          </Button>
+                          </SubmitButton>
                         </form>
                       ) : (
                         <form action={banUserAction}>
                           <input type="hidden" name="userId" value={userCard.id} />
-                          <Button type="submit" variant="outline" className="text-xs h-9 text-rose-600 hover:text-rose-700 hover:bg-rose-50">
+                          <SubmitButton variant="outline" className="text-xs h-9 text-rose-600 hover:text-rose-700 hover:bg-rose-50" confirmMessage="Вы уверены, что хотите забанить данного клиента? Действие можно отменить позже.">
                             Бан
-                          </Button>
+                          </SubmitButton>
                         </form>
                       )}
                     </div>
@@ -160,7 +161,7 @@ export default async function AdminClientsPage({ searchParams }: Props) {
                         <label className="text-xs text-slate-500 mb-1 block">Причина / Комментарий</label>
                         <Input type="text" name="reason" placeholder="Например: Компенсация за #1234" required className="h-9 text-sm" />
                       </div>
-                      <Button type="submit" className="w-full text-xs h-9">Применить</Button>
+                      <SubmitButton className="w-full text-xs h-9" confirmMessage="Изменить баланс клиента? Убедитесь, что указана корректная причина, так как это действие отразится в аудит-логе.">Применить</SubmitButton>
                     </form>
                   </CardContent>
                 </Card>

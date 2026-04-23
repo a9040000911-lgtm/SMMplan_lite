@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { sendMagicLink } from "@/lib/smtp";
 import crypto from "crypto";
+import { cookies } from "next/headers";
 
 const schema = z.object({
   email: z.string().email("Введите корректный email"),
@@ -41,10 +42,20 @@ export async function requestMagicLink(prevState: any, formData: FormData) {
     // Узнаем, существует ли пользователь (или авто-создаем)
     let user = await db.user.findUnique({ where: { email: cleanEmail } });
     if (!user) {
+      // Пытаемся получить реферальный код из куки
+      const cookieStore = await cookies();
+      const refCode = cookieStore.get("ref")?.value;
+      let referredById = null;
+
+      if (refCode) {
+        const referrer = await db.user.findUnique({ where: { referralCode: refCode } });
+        if (referrer) referredById = referrer.id;
+      }
+
       // Авто-bootstrap: Если в базе еще нет ни одного Владельца, этот юзер им станет
       const ownerCount = await db.user.count({ where: { role: "OWNER" } });
       const role = ownerCount === 0 ? "OWNER" : "USER";
-      user = await db.user.create({ data: { email: cleanEmail, role } });
+      user = await db.user.create({ data: { email: cleanEmail, role, referredById } });
     }
 
     // Rate Limiting (Anti-Spam)

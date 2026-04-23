@@ -38,6 +38,12 @@ export async function GET(request: Request) {
     const toUpdateRate: { id: string, rate: number, isActive: boolean }[] = [];
     const toDecreaseGuard: { id: string, dataHash: string }[] = [];
 
+    let disabledCnt = 0;
+    let jitteredCnt = 0;
+    let unchangedCnt = 0;
+    let updatedCnt = 0;
+    const anomalies: string[] = [];
+
     // 1. Group operations
     for (const localService of internalServices) {
       if (!localService.externalId) continue;

@@ -145,7 +145,7 @@ export async function GET(request: Request) {
       const isFatal = newRetryCount >= 3;
 
       if (isFatal) {
-        const consumedCharge = Math.floor((order.charge * order.currentRun) / order.runs);
+        const consumedCharge = Math.floor((order.charge * order.currentRun) / (order.runs || 1));
         const refundAmount = order.charge - consumedCharge;
 
         await db.$transaction(async (tx) => {
