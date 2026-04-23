@@ -1,6 +1,6 @@
 import { adminOrderService } from '@/services/admin/order.service';
 import { cancelOrderAction, restartOrderAction } from '@/actions/admin/orders';
-import { Card, CardHeader, CardContent, Button as HeroButton } from '@heroui/react';
+import { Card, CardHeader, CardContent, Button as HeroButton } from '@/components/admin/hero-ui';
 import { Package, Download } from 'lucide-react';
 import Link from 'next/link';
 import { AdminPageHeader } from '@/components/admin/page-header';

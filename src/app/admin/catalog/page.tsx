@@ -7,7 +7,7 @@ import {
   Card as HeroCard,
   CardContent,
   Button as HeroButton
-} from "@heroui/react";
+} from "@/components/admin/hero-ui";
 import { AdminPageHeader } from '@/components/admin/page-header';
 import { CatalogTable } from './client-table';
 import { db } from '@/lib/db';

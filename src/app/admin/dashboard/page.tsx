@@ -8,7 +8,7 @@ import { db } from '@/lib/db';
 import { FinancialChart } from './financial-chart';
 import { Check, Clock, ChevronDown, Bell, Search, Settings, Home } from 'lucide-react';
 import Link from 'next/link';
-import { Button } from '@heroui/react';
+import { Button } from '@/components/admin/hero-ui';
 import { AdminPageHeader } from '@/components/admin/page-header';
 
 export const dynamic = 'force-dynamic';

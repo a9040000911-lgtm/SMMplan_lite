@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { verifySession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { redirect } from 'next/navigation';

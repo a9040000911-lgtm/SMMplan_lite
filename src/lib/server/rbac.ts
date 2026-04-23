@@ -1,4 +1,4 @@
-import { headers } from "next/headers";
+
 import { db } from "@/lib/db";
 
 import { verifySession } from "@/lib/session";

@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { paymentService } from '@/services/financial/payment.service';
 import { db } from '@/lib/db';
@@ -42,3 +43,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Sandbox Error' }, { status: 500 });
   }
 }
+

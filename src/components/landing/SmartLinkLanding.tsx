@@ -11,6 +11,7 @@ import { Zap, ArrowRight, Loader2, Search, CheckCircle2, ShoppingCart, Tag, Send
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatCents } from "@/lib/utils";
+import { useTrackEvent } from "@/hooks/useTrackEvent";
 
 type ViewState = "idle" | "loading" | "results";
 
@@ -39,6 +40,8 @@ export function SmartLinkLanding({ initialCatalog, initialEmail }: { initialCata
   const [isOrdering, setIsOrdering] = useState(false);
   const [orderError, setOrderError] = useState("");
 
+  const { track } = useTrackEvent();
+
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Focus on mount (for desktop)
@@ -54,6 +57,13 @@ export function SmartLinkLanding({ initialCatalog, initialEmail }: { initialCata
       setQuantity(selectedService.minQty);
     }
   }, [selectedService]);
+
+  // Track Checkout Form Open
+  useEffect(() => {
+    if (selectedService) {
+      track('CHECKOUT_INITIATED', { serviceId: selectedService.id, serviceName: selectedService.name });
+    }
+  }, [selectedService, track]);
 
   // Price Calculation
   useEffect(() => {
@@ -83,6 +93,7 @@ export function SmartLinkLanding({ initialCatalog, initialEmail }: { initialCata
     if (res.success && res.data) {
       const p = res.data.platform;
       setAnalyzedPlatform(p);
+      track('LINK_PASTED', { url: inputValue.trim(), platform: p });
       
       // Filter DB Catalog for this platform
       const allowedCategories = initialCatalog.filter(c => c.platform === p);
@@ -143,6 +154,8 @@ export function SmartLinkLanding({ initialCatalog, initialEmail }: { initialCata
 
     setIsOrdering(true);
     setOrderError("");
+    
+    track('PAYMENT_CLICKED', { serviceId: selectedService.id, quantity });
     
     const res = await checkoutAction({
       serviceId: selectedService.id, 
@@ -255,7 +268,10 @@ export function SmartLinkLanding({ initialCatalog, initialEmail }: { initialCata
                  {services.slice(0, 4).map((srv) => (
                    <button
                      key={srv.id}
-                     onClick={() => setSelectedService(srv)}
+                     onClick={() => {
+                        setSelectedService(srv);
+                        track('SERVICE_SELECTED', { serviceId: srv.id, serviceName: srv.name });
+                     }}
                      className={`w-full text-left bg-white border outline-none rounded-2xl p-4 transition-all focus-visible:ring-2 focus-visible:ring-blue-500 flex flex-col relative overflow-hidden group
                        ${selectedService?.id === srv.id 
                          ? `border-blue-500 ring-1 ring-blue-500 shadow-md ${getPlatformColor(analyzedPlatform)}` 

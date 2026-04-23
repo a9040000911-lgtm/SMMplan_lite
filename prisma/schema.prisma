@@ -366,3 +366,12 @@ model SupportTemplate {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+// Telemetry
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  event     String
+  metadata  Json?
+  sessionId String?
+  createdAt DateTime @default(now())
+}

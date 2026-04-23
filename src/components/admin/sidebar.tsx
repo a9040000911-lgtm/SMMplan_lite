@@ -7,7 +7,7 @@ import { CommandMenu } from '@/components/admin/command-menu';
 import { 
   Home, Users, Package, RefreshCw, ShoppingCart, 
   MessageSquare, CreditCard, Link as LinkIcon, Gift, FileText, Settings,
-  PanelLeftClose, PanelLeftOpen, ArrowLeft 
+  PanelLeftClose, PanelLeftOpen, ArrowLeft, BarChart 
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -19,7 +19,7 @@ interface SidebarProps {
 
 const ICON_MAP: Record<string, React.ElementType> = {
   Home, Users, Package, RefreshCw, ShoppingCart, 
-  MessageSquare, CreditCard, Link: LinkIcon, Gift, FileText, Settings
+  MessageSquare, CreditCard, Link: LinkIcon, Gift, FileText, Settings, BarChart
 };
 
 export function AdminSidebar({ userEmail, roleInfo, visibleTabs }: SidebarProps) {

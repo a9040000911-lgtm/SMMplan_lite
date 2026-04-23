@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { verifySession } from '@/lib/session';
 import { db } from '@/lib/db';
+export const dynamic = "force-dynamic";
 import Link from 'next/link';
 import { Toaster } from '@/components/ui/sonner';
 import { AdminSidebar } from '@/components/admin/sidebar';

@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { verifyB2BKey } from '@/lib/b2b-auth';
@@ -328,3 +329,4 @@ async function handleRefillStatus(user: any, formData: FormData) {
 
   return NextResponse.json({ status: mapRefillStatus(refill.status) });
 }
+

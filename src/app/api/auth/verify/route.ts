@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createSession } from "@/lib/session";
@@ -38,3 +39,4 @@ export async function GET(request: Request) {
 
   return NextResponse.redirect(new URL("/dashboard", request.url));
 }
+

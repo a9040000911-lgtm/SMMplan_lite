@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { jwtVerify } from 'jose';
@@ -51,3 +52,4 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
   }
 }
+

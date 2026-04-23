@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import Link from "next/link";
-import { Button as HeroButton } from "@heroui/react";
+import { Button as HeroButton } from "@/components/admin/hero-ui";
 import { Plug } from 'lucide-react';
 import { AdminPageHeader } from '@/components/admin/page-header';
 import { ProvidersTable } from "./client-table";
