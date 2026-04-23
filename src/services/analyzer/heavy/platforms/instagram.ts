@@ -7,10 +7,13 @@ import type { Platform, Category } from '../types';
 import { AnalysisResult, PlatformParser } from '../types';
 
 export const InstagramParser: PlatformParser = {
-  name: 'INSTAGRAM' as Platform,
-  domains: ['instagram.com'],
-  parse(url: string): AnalysisResult | null {
-    if (url.includes('/p/') || url.includes('/tv/')) {
+    name: 'INSTAGRAM' as Platform,
+    domains: ['instagram.com', 'ig.me'],
+    parse(url: string): AnalysisResult | null {
+        if (url.includes('ig.me/m/')) {
+            return { platform: 'INSTAGRAM' as Platform, possibleCategories: ['OTHER' as Category], objectType: 'IG_DM' as any };
+        }
+        if (url.includes('/p/') || url.includes('/tv/')) {
       return { platform: 'INSTAGRAM' as Platform, possibleCategories: ['LIKES' as Category, 'VIEWS' as Category, 'REPOSTS' as Category, 'COMMENTS' as Category], objectType: 'IG_POST' };
     }
     if (url.includes('/reel/')) return { platform: 'INSTAGRAM' as Platform, possibleCategories: ['LIKES' as Category, 'VIEWS' as Category, 'REPOSTS' as Category, 'COMMENTS' as Category], objectType: 'IG_REEL' };

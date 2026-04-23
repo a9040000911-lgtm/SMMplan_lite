@@ -18,7 +18,27 @@ export async function requestMagicLink(prevState: any, formData: FormData) {
   const cleanEmail = parsed.data.email.toLowerCase();
 
   try {
-    // Upsert пользователя (Auto-signup)
+    // [SAFE BYPASS] Только для локальной разработки! 
+    if (
+      process.env.NODE_ENV !== "production" &&
+      process.env.DEV_BYPASS_EMAIL &&
+      cleanEmail === process.env.DEV_BYPASS_EMAIL.toLowerCase()
+    ) {
+      let user = await db.user.findUnique({ where: { email: cleanEmail } });
+      if (!user) {
+        user = await db.user.create({ data: { email: cleanEmail, role: "OWNER" } });
+      } else if (user.role !== "OWNER") {
+        user = await db.user.update({ where: { id: user.id }, data: { role: "OWNER" } });
+      }
+      
+      const { createSession } = await import("@/lib/session");
+      await createSession(user.id);
+
+      const { redirect } = await import("next/navigation");
+      redirect("/admin/dashboard");
+    }
+
+    // Узнаем, существует ли пользователь (или авто-создаем)
     let user = await db.user.findUnique({ where: { email: cleanEmail } });
     if (!user) {
       // Авто-bootstrap: Если в базе еще нет ни одного Владельца, этот юзер им станет
@@ -27,14 +47,27 @@ export async function requestMagicLink(prevState: any, formData: FormData) {
       user = await db.user.create({ data: { email: cleanEmail, role } });
     }
 
+    // Rate Limiting (Anti-Spam)
+    const recentToken = await db.authToken.findFirst({
+      where: { 
+        userId: user.id, 
+        createdAt: { gt: new Date(Date.now() - 60 * 1000) } 
+      }
+    });
+
+    if (recentToken) {
+      return { error: "Ссылка уже отправлена. Пожалуйста, подождите 1 минуту перед новым запросом.", success: false };
+    }
+
     // Генерируем секретный токен (используем crypto для надежности)
     const rawToken = crypto.randomBytes(32).toString("hex");
+    const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 минут
 
     await db.authToken.create({
       data: {
         userId: user.id,
-        token: rawToken,
+        token: hashedToken, // Безопасное хранение хэша в БД
         expiresAt,
       },
     });

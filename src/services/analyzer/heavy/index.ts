@@ -52,60 +52,62 @@ const PARSERS: PlatformParser[] = [
 ];
 
 export function analyzeLink(link: string): AnalysisResult | null {
-  let url = link.trim().toLowerCase();
+  // Preserve original case for the full URL (IDs are case-sensitive)
+  let processedUrl = link.trim();
 
-  if (!url.startsWith('http') && !url.includes('.')) {
+  if (!processedUrl.toLowerCase().startsWith('http') && !processedUrl.includes('.')) {
     return null; 
   }
 
   // Double check: if it has spaces or no dots, it's probably just text
-  if (link.trim().includes(' ') && !url.startsWith('http')) {
+  if (processedUrl.includes(' ') && !processedUrl.toLowerCase().startsWith('http')) {
     return null;
   }
 
-  if (!url.startsWith('http')) {
-    url = 'https://' + url;
+  if (!processedUrl.toLowerCase().startsWith('http')) {
+    processedUrl = 'https://' + processedUrl;
   }
 
   try {
-    const urlObj = new URL(url);
+    const urlObj = new URL(processedUrl);
     const paramsToRemove = ['igsh', 'utm_source', 'utm_medium', 'utm_campaign', 'from', 'list', 'ref'];
     paramsToRemove.forEach(p => urlObj.searchParams.delete(p));
     urlObj.pathname = urlObj.pathname.replace(/\/$/, '');
-    url = urlObj.toString().toLowerCase();
+    // Do NOT lowercase the entire URL, save it as is
+    processedUrl = urlObj.toString();
   } catch (_e) {
-    url = url.toLowerCase();
+    // If URL is invalid, just keep the raw trimmed version
   }
 
   try {
-    const urlObj = new URL(url);
-    const hostname = urlObj.hostname.replace('www.', '');
+    const urlObj = new URL(processedUrl);
+    const hostname = urlObj.hostname.replace('www.', '').toLowerCase();
 
     for (const parser of PARSERS) {
       if (parser.domains.some(domain => hostname === domain || hostname.endsWith('.' + domain))) {
-        const result = parser.parse(url);
+        const result = parser.parse(processedUrl);
         if (result) return result;
       }
     }
   } catch (_e) {
     // If URL parsing fails, fallback to loose includes or just return null
     for (const parser of PARSERS) {
-      if (parser.domains.some(domain => url.includes(domain))) {
-        const result = parser.parse(url);
+      if (parser.domains.some(domain => processedUrl.includes(domain))) {
+        const result = parser.parse(processedUrl);
         if (result) return result;
       }
     }
   }
 
   // Final check - if it's t.me/ something it might have failed URL but is still Telegram
-  if (url.includes('t.me/')) {
-     const result = TelegramParser.parse(url);
+  if (processedUrl.includes('t.me/')) {
+     const result = TelegramParser.parse(processedUrl);
      if (result) return result;
   }
 
   // Fallback for all other websites not natively parsed
   try {
-    new URL(url);
+    new URL(processedUrl);
     return {
       platform: 'OTHER' as Platform,
       possibleCategories: ['TRAFFIC', 'OTHER', 'REVIEWS'] as Category[],

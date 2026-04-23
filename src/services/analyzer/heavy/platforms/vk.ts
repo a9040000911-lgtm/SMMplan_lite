@@ -51,8 +51,8 @@ export const VkParser: PlatformParser = {
       if (/^id\d+$/.test(idPath)) return { platform: 'VK' as Platform, possibleCategories: ['FRIENDS' as Category, 'SUBSCRIBERS' as Category, 'OTHER' as Category], objectType: 'VK_PROFILE' };
       if (/^(club|public|event)\d+$/.test(idPath)) return { platform: 'VK' as Platform, possibleCategories: ['GROUPS' as Category, 'SUBSCRIBERS' as Category, 'OTHER' as Category], objectType: 'VK_GROUP' };
 
-      // If it's a shortname (no dots, no slashes, at least 2 chars)
-      if (/^[a-zA-Z0-9_]{2,}$/.test(idPath)) {
+      // If it's a shortname (letters, numbers, underscores, and dots, at least 2 chars)
+      if (/^[a-zA-Z0-9_\.]{2,}$/.test(idPath)) {
         return { platform: 'VK' as Platform, possibleCategories: ['GROUPS' as Category, 'SUBSCRIBERS' as Category, 'FRIENDS' as Category, 'OTHER' as Category], objectType: 'VK_GROUP' };
       }
     }

@@ -22,6 +22,13 @@ export class OrderSyncWorker {
 
       for (const order of pendingOrders) {
         try {
+          // ATOMIC LOCK: Prevent concurrent workers from sending the same order twice leading to duplicate provider charges
+          const lock = await db.order.updateMany({
+             where: { id: order.id, status: 'PENDING' },
+             data: { status: 'PROVISIONING' }
+          });
+          if (lock.count === 0) continue;
+
           if (!order.service?.externalId) {
              throw new Error(`Service has no external ID mapped.`);
           }
@@ -42,14 +49,35 @@ export class OrderSyncWorker {
           } else {
             const newRetryCount = (order.retryCount || 0) + 1;
             const isFatal = newRetryCount >= 3;
-            await db.order.update({
-              where: { id: order.id },
-              data: { 
-                error: res.error || 'Failed to submit',
-                retryCount: newRetryCount,
-                status: isFatal ? 'ERROR' : 'PENDING'
-              }
-            });
+            
+            if (isFatal) {
+              await db.$transaction(async (tx) => {
+                await tx.order.update({
+                  where: { id: order.id },
+                  data: { 
+                    error: res.error || 'Failed to submit (FATAL)',
+                    retryCount: newRetryCount,
+                    status: 'ERROR'
+                  }
+                });
+                await tx.user.update({
+                  where: { id: order.userId },
+                  data: { 
+                    balance: { increment: order.charge },
+                    totalSpent: { decrement: order.charge }
+                  }
+                });
+              });
+            } else {
+              await db.order.update({
+                where: { id: order.id },
+                data: { 
+                  error: res.error || 'Failed to submit',
+                  retryCount: newRetryCount,
+                  status: 'PENDING'
+                }
+              });
+            }
           }
         } catch (e: any) {
           console.error(`[SyncWorker] Failed to push order ${order.id}:`, e);
@@ -91,45 +119,54 @@ export class OrderSyncWorker {
 
       for (const order of inProgressOrders) {
         let newLocalStatus = order.status;
-        let requiresRefund = false;
         let totalRemainsToRefund = 0;
         let anyChunkFailed = false;
 
         if (order.isDripFeed && order.dripExternalIds && order.dripExternalIds.length > 0) {
            // Aggregate statuses across all chunks
            let completedChunks = 0;
+           let finalFailedChunks = 0;
+           let totalRemainsToRefund = 0;
+
            for (const chunkId of order.dripExternalIds) {
               const chunkStatusData = statuses[chunkId];
               if (!chunkStatusData) continue;
               const sLower = (chunkStatusData.status || '').toLowerCase();
-              if (sLower === 'completed') completedChunks++;
+              if (sLower === 'completed') {
+                 completedChunks++;
+              }
               else if (sLower === 'canceled' || sLower === 'error') {
-                 anyChunkFailed = true;
-                 totalRemainsToRefund += Math.floor(order.quantity / (order.runs || 1)); // Approximation of chunk size
+                 finalFailedChunks++;
+                 totalRemainsToRefund += Math.floor(order.quantity / (order.runs || 1));
               }
               else if (sLower === 'partial') {
-                 anyChunkFailed = true;
+                 finalFailedChunks++;
                  totalRemainsToRefund += chunkStatusData.remains || 0;
               }
            }
 
-           if (anyChunkFailed) {
-              newLocalStatus = 'PARTIAL'; // Treat any failure in drip as a partial overall
-           } else if (completedChunks === order.runs && order.runs > 0) {
-              newLocalStatus = 'COMPLETED';
+           // Check if we have finished dispatching all chunks AND all dispatched chunks are final
+           const allDispatchedFinalized = (completedChunks + finalFailedChunks) === order.dripExternalIds.length;
+           const isFinishedDispatching = order.currentRun >= (order.runs || 0) && order.nextRunAt === null;
+
+           if (!isFinishedDispatching || !allDispatchedFinalized) {
+               newLocalStatus = 'IN_PROGRESS';
            } else {
-              newLocalStatus = 'IN_PROGRESS'; // Still going
+               if (finalFailedChunks > 0) {
+                   newLocalStatus = 'PARTIAL';
+               } else {
+                   newLocalStatus = 'COMPLETED';
+               }
            }
 
            if (newLocalStatus !== order.status) {
               await db.$transaction(async (tx) => {
                  const freshOrder = await tx.order.findUniqueOrThrow({ where: { id: order.id } });
-                 if (freshOrder.status === 'CANCELED' || freshOrder.status === 'PARTIAL') return;
+                 if (freshOrder.status === 'CANCELED' || freshOrder.status === 'PARTIAL' || freshOrder.status === 'ERROR') return;
                  
-                 let refundAmount = 0;
-                 if (anyChunkFailed && totalRemainsToRefund > 0) {
+                 if (finalFailedChunks > 0 && totalRemainsToRefund > 0) {
                     const refundRatio = Math.min(totalRemainsToRefund / freshOrder.quantity, 1);
-                    refundAmount = Math.floor(freshOrder.charge * refundRatio);
+                    const refundAmount = Math.floor(freshOrder.charge * refundRatio);
                     if (refundAmount > 0) {
                       await tx.user.update({
                         where: { id: freshOrder.userId },
@@ -167,15 +204,15 @@ export class OrderSyncWorker {
               });
 
               // If already refunded by another concurrent run, skip
-              if (freshOrder.status === 'CANCELED' || freshOrder.status === 'PARTIAL') {
+              if (freshOrder.status === 'CANCELED' || freshOrder.status === 'PARTIAL' || freshOrder.status === 'ERROR') {
                 return; // Already processed — idempotency guard
               }
 
               let refundAmount = 0;
               // Lock user if we need to refund
-              if (newLocalStatus === 'CANCELED' || newLocalStatus === 'PARTIAL') {
+              if (newLocalStatus === 'CANCELED' || newLocalStatus === 'PARTIAL' || newLocalStatus === 'ERROR') {
                   // Determine refund amount
-                  if (newLocalStatus === 'CANCELED') {
+                  if (newLocalStatus === 'CANCELED' || newLocalStatus === 'ERROR') {
                     refundAmount = freshOrder.charge; // Full refund
                   } else if (newLocalStatus === 'PARTIAL') {
                     // Partial refund based on remains ratio
@@ -191,6 +228,15 @@ export class OrderSyncWorker {
                         totalSpent: { decrement: refundAmount }
                       }
                     });
+
+                    await tx.ledgerEntry.create({
+                      data: {
+                        userId: freshOrder.userId,
+                        amount: refundAmount,
+                        reason: `Возврат средств по заказу ${order.id} (статус ${newLocalStatus}) - Система`,
+                        status: 'APPROVED'
+                      }
+                    });
                   }
               }
 
@@ -203,7 +249,7 @@ export class OrderSyncWorker {
                   error: newStatusData.error || null,
                 }
               });
-            });
+            }, { isolationLevel: 'Serializable' });
           }
         }
       }

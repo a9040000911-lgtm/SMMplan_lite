@@ -6,7 +6,8 @@ import { approveQuarantineAction, rejectQuarantineAction } from '@/actions/admin
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Check, X } from 'lucide-react';
+import { Check, X, Wallet } from 'lucide-react';
+import { AdminPageHeader } from '@/components/admin/page-header';
 
 export const dynamic = 'force-dynamic'; // Always fresh data
 
@@ -19,11 +20,12 @@ export default async function FinanceDashboard() {
     new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(val / 100);
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto p-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">💰 Финансовый учёт</h1>
-        <p className="text-slate-500">Метрики в реальном времени и одобрение карантинных транзакций.</p>
-      </div>
+    <div className="space-y-6 w-full animate-in fade-in duration-500 ease-out sm:px-2 md:px-0 bg-slate-50/50 min-h-full pb-10">
+      <AdminPageHeader
+        icon={Wallet}
+        title="Финансовый учёт"
+        description="Метрики в реальном времени и одобрение карантинных транзакций."
+      />
 
       {quarantineList.length > 0 && (
         <Card className="border-rose-200 shadow-sm border-2">

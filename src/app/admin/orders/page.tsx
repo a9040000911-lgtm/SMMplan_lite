@@ -1,7 +1,9 @@
 import { adminOrderService } from '@/services/admin/order.service';
 import { cancelOrderAction, restartOrderAction } from '@/actions/admin/orders';
 import { Card, CardHeader, CardContent, Button as HeroButton } from '@heroui/react';
+import { Package, Download } from 'lucide-react';
 import Link from 'next/link';
+import { AdminPageHeader } from '@/components/admin/page-header';
 import { OrderClient } from './components/order-client';
 
 export const dynamic = 'force-dynamic';
@@ -52,25 +54,23 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
   const stats = await adminOrderService.getOrderStats();
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">📦 Заказы</h1>
-          <p className="text-slate-500 mt-1">
-            Всего: {stats.total} • В очереди: {stats.pending} • В работе: {stats.inProgress} • Ошибки: {stats.error}
-          </p>
-        </div>
-        <a
-          href={`/api/admin/export?type=orders&status=${statusFilter}&q=${encodeURIComponent(query)}`}
-          className="inline-flex items-center px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 transition-colors shadow-sm"
-        >
-          📥 Экспорт CSV
-        </a>
-      </div>
+    <div className="space-y-6 w-full animate-in fade-in duration-500 ease-out sm:px-2 md:px-0 bg-slate-50/50 min-h-full pb-10">
+      <AdminPageHeader
+        icon={Package}
+        title="Заказы"
+        description={`Всего: ${stats.total} • В очереди: ${stats.pending} • В работе: ${stats.inProgress} • Ошибки: ${stats.error}`}
+        action={(
+          <a
+            href={`/api/admin/export?type=orders&status=${statusFilter}&q=${encodeURIComponent(query)}`}
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-slate-700 bg-white border border-slate-200 shadow-sm rounded-lg hover:bg-slate-50 hover:text-indigo-600 transition-colors"
+          >
+            <Download className="w-4 h-4" /> Экспорт CSV
+          </a>
+        )}
+      />
 
       {/* Search + Filters */}
-      <Card className="shadow-sm">
+      <Card>
         <CardContent className="pt-6">
           <form className="flex flex-col md:flex-row gap-4">
             <input
@@ -95,7 +95,7 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
       </Card>
 
       {/* Orders Table */}
-      <Card className="shadow-sm">
+      <Card>
         <CardHeader>
           <h3 className="text-lg font-bold">
             Результаты{query ? ` по запросу "${query}"` : ''} ({orders.length}{hasMore ? '+' : ''})

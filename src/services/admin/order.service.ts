@@ -84,54 +84,65 @@ export class AdminOrderService {
    * refund only the undelivered portion.
    */
   async cancelOrder(orderId: string, admin: { id: string; email: string }) {
-    const order = await db.order.findUniqueOrThrow({
-      where: { id: orderId },
-      include: { user: true },
-    });
+    const orderBefore = await db.order.findUniqueOrThrow({ where: { id: orderId } });
 
-    // Can't cancel already completed or canceled orders
-    if (['COMPLETED', 'CANCELED'].includes(order.status)) {
-      throw new Error(`Order ${order.numericId} is already ${order.status}`);
-    }
+    const result = await db.$transaction(async (tx) => {
+      const order = await tx.order.findUniqueOrThrow({
+        where: { id: orderId },
+        include: { user: true },
+      });
 
-    // Calculate refund amount
-    let refundCents = 0;
-    if (order.status === 'AWAITING_PAYMENT' || order.status === 'PENDING') {
-      // Full refund — nothing was delivered
-      refundCents = order.charge;
-    } else if (order.remains > 0 && order.quantity > 0) {
-      // Partial refund — based on undelivered portion
-      refundCents = Math.round((order.remains / order.quantity) * order.charge);
-    }
+      if (['COMPLETED', 'CANCELED'].includes(order.status)) {
+        throw new Error(`Order ${order.numericId} is already ${order.status}`);
+      }
 
-    await db.$transaction(async (tx) => {
-      // 1. Update order status
+      let refundCents = 0;
+      if (order.status === 'AWAITING_PAYMENT' || order.status === 'PENDING' || order.status === 'IN_PROGRESS') {
+          // If IN_PROGRESS but remains/quantity exists, we partially refund
+          if (order.status === 'IN_PROGRESS' || order.status === 'PARTIAL') {
+            if (order.remains > 0 && order.quantity > 0) {
+               refundCents = Math.floor((order.remains / order.quantity) * order.charge);
+            }
+          } else {
+             refundCents = order.charge; // For PENDING / AWAITING
+          }
+      }
+
       await tx.order.update({
         where: { id: orderId },
         data: { status: 'CANCELED' },
       });
 
-      // 2. Refund balance
       if (refundCents > 0) {
         await tx.user.update({
           where: { id: order.userId },
-          data: { balance: { increment: refundCents } },
+          data: { balance: { increment: refundCents }, totalSpent: { decrement: refundCents } },
+        });
+        await tx.ledgerEntry.create({
+          data: {
+            userId: order.userId,
+            adminId: admin.id,
+            amount: refundCents,
+            reason: `Отмена заказа ${order.numericId} администратором - Возврат средств`,
+            status: 'APPROVED'
+          }
         });
       }
-    });
 
-    // 3. Audit log (fire-and-forget, outside transaction)
+      return { refundCents, orderNumericId: order.numericId, statusBefore: order.status, remainsBefore: order.remains };
+    }, { isolationLevel: 'Serializable' });
+
     auditAdmin({
       adminId: admin.id,
       adminEmail: admin.email,
       action: 'ORDER_CANCEL',
       target: orderId,
       targetType: 'ORDER',
-      oldValue: { status: order.status, remains: order.remains },
-      newValue: { status: 'CANCELED', refundCents },
+      oldValue: { status: result.statusBefore, remains: result.remainsBefore },
+      newValue: { status: 'CANCELED', refundCents: result.refundCents },
     });
 
-    return { refundCents, orderNumericId: order.numericId };
+    return { refundCents: result.refundCents, orderNumericId: result.orderNumericId };
   }
 
   /**
@@ -139,23 +150,48 @@ export class AdminOrderService {
    * The provision worker will pick it up on next cycle.
    */
   async restartOrder(orderId: string, admin: { id: string; email: string }) {
-    const order = await db.order.findUniqueOrThrow({
-      where: { id: orderId },
-    });
+    const result = await db.$transaction(async (tx) => {
+      const order = await tx.order.findUniqueOrThrow({
+        where: { id: orderId },
+        include: { user: true }
+      });
 
-    if (!['ERROR', 'CANCELED'].includes(order.status)) {
-      throw new Error(`Order ${order.numericId} cannot be restarted (status: ${order.status})`);
-    }
+      if (order.status !== 'ERROR') {
+        throw new Error(`Order ${order.numericId} cannot be restarted (status: ${order.status}). Используйте "Дублировать заказ".`);
+      }
 
-    await db.order.update({
-      where: { id: orderId },
-      data: {
-        status: 'PENDING',
-        error: null,
-        retryCount: 0,
-        externalId: null, // Clear stale provider ID
-      },
-    });
+      const updatedUser = await tx.user.update({
+        where: { id: order.userId },
+        data: { balance: { decrement: order.charge }, totalSpent: { increment: order.charge } }
+      });
+
+      await tx.ledgerEntry.create({
+        data: {
+          userId: order.userId,
+          adminId: admin.id,
+          amount: -order.charge,
+          reason: `Перезапуск заказа ${order.numericId} администратором - Повторное списание`,
+          status: 'APPROVED'
+        }
+      });
+
+      if (updatedUser.balance < 0) {
+        throw new Error(`Недостаточно средств у пользователя для перезапуска. Необходимо ${(order.charge / 100).toFixed(2)} ₽.`);
+      }
+
+      // Reset order state
+      await tx.order.update({
+        where: { id: orderId },
+        data: {
+          status: 'PENDING',
+          error: null,
+          retryCount: 0,
+          externalId: null, // Clear stale provider ID
+        },
+      });
+
+      return { orderNumericId: order.numericId, oldStatus: order.status, oldError: order.error, charge: order.charge };
+    }, { isolationLevel: 'Serializable' });
 
     auditAdmin({
       adminId: admin.id,
@@ -164,7 +200,7 @@ export class AdminOrderService {
       target: orderId,
       targetType: 'ORDER',
       oldValue: { status: order.status, error: order.error },
-      newValue: { status: 'PENDING' },
+      newValue: { status: 'PENDING', reChargeCents: order.charge },
     });
 
     return { orderNumericId: order.numericId };

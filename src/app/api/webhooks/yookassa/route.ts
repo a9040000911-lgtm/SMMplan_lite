@@ -21,15 +21,21 @@ export async function POST(req: NextRequest) {
     
     if (rawBody.event === 'payment.succeeded' && rawBody.object) {
       const gatewayId = rawBody.object.id;
-      const amount = Math.round(parseFloat(rawBody.object.amount?.value || '0') * 100);
+      
+      // Strict Integer parsing complying with IEEE 754 financial rules
+      const rawAmountStr = String(rawBody.object.amount?.value || '0.00');
+      const [intPart, decPart] = rawAmountStr.split('.');
+      const amount = parseInt(intPart || '0', 10) * 100 + parseInt((decPart || '00').padEnd(2, '0').slice(0, 2), 10);
+      
       const userId = rawBody.object.metadata?.userId;
+      const internalPaymentId = rawBody.object.metadata?.paymentId;
 
       if (!userId || !gatewayId) {
         return NextResponse.json({ error: 'Missing userId or gatewayId in metadata' }, { status: 400 });
       }
 
       // Safe confirmation using Double-Check Logic
-      const success = await paymentService.confirmPayment(gatewayId, amount, userId, false);
+      const success = await paymentService.confirmPayment(gatewayId, amount, userId, false, 'yookassa', internalPaymentId);
 
       if (success) {
         return NextResponse.json({ success: true, status: 'Payment processed strictly' }, { status: 200 });

@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { providerService } from "@/services/providers/provider.service";
 import { SmartAnalyzerLogic, CATEGORY_LABELS } from "@/services/providers/smart-analyzer.logic";
+import { applyPricingLadder, USD_TO_RUB } from "@/lib/financial-constants";
 
 import { requireAdmin } from "@/lib/server/rbac";
 import { auditAdmin } from "@/lib/admin-audit";
@@ -69,9 +70,9 @@ export async function adminSyncProviderCatalog() {
 
          // 3. Upsert Service
          const externalId = String(apiService.service);
-         const rateFloat = parseFloat(apiService.rate);
-         const minInt = parseInt(apiService.min);
-         const maxInt = parseInt(apiService.max);
+         const rateFloat = parseFloat(apiService.rate) || 0;
+         const minInt = parseInt(apiService.min, 10) || 10;
+         const maxInt = parseInt(apiService.max, 10) || 100000;
 
          const existingServiceId = serviceMap.get(externalId);
 
@@ -84,22 +85,31 @@ export async function adminSyncProviderCatalog() {
                      rate: rateFloat,
                      minQty: minInt,
                      maxQty: maxInt,
-                     isActive: true 
+                     isActive: true,
+                     lastSeenAt: new Date()
                  }
              });
              updatedServices++;
          } else {
+             // Calculate smart markup based on price tier
+             const retailFromLadder = applyPricingLadder(rateFloat * USD_TO_RUB);
+             const calculatedMarkup = rateFloat > 0 ? Math.round((retailFromLadder / (rateFloat * USD_TO_RUB)) * 100) / 100 : 3.0;
+
              // Insert new service since we didn't map it
              await db.service.create({
                  data: {
                      name: analysis.suggestedName || apiService.name,
                      categoryId: categoryId,
                      rate: rateFloat,
-                     markup: 3.0, // Default 300% markup
+                     markup: calculatedMarkup,
                      minQty: minInt,
                      maxQty: maxInt,
                      externalId: externalId,
-                     isActive: true
+                     isActive: true,
+                     isDripFeedEnabled: apiService.dripfeed ?? false,
+                     isRefillEnabled: apiService.refill ?? false,
+                     isCancelEnabled: apiService.cancel ?? false,
+                     lastSeenAt: new Date()
                  }
              });
              newServices++;

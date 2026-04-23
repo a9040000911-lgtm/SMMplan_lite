@@ -15,9 +15,9 @@ export class TicketService {
     });
   }
 
-  async addMessage(ticketId: string, sender: 'USER' | 'STAFF' | 'INTERNAL', text: string) {
+  async addMessage(ticketId: string, sender: 'USER' | 'STAFF' | 'INTERNAL', text: string, mediaUrl?: string, mediaType?: string) {
     const message = await db.ticketMessage.create({
-      data: { ticketId, sender, text },
+      data: { ticketId, sender, text, mediaUrl, mediaType },
       include: {
         ticket: { include: { user: true } }
       }

@@ -72,7 +72,7 @@ export class IntelligenceLinkAnalyzer {
                 return {
                     platform: rule.platform,
                     type: rule.type,
-                    id: match[1] || 'unknown',
+                    id: match[1] || match[2] || match[3] || 'unknown',
                     canonicalUrl: url,
                     metadata: {
                         isLive: url.includes('/live/') || url.includes('/reel/'),

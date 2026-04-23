@@ -7,6 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { db } from '@/lib/db';
 import Link from 'next/link';
+import { Settings } from 'lucide-react';
+import { AdminPageHeader } from '@/components/admin/page-header';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,11 +31,12 @@ export default async function AdminSettingsPage({
   const regularUsers = users.filter((u) => u.role === 'USER' || u.role === 'BANNED');
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto p-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">⚙️ Настройки системы</h1>
-        <p className="text-slate-500">Конфигурация инфраструктуры, интеграций и команды.</p>
-      </div>
+    <div className="space-y-6 w-full animate-in fade-in duration-500 ease-out sm:px-2 md:px-0 bg-slate-50/50 min-h-full pb-10">
+      <AdminPageHeader
+        icon={Settings}
+        title="Настройки системы"
+        description="Конфигурация инфраструктуры, интеграций и команды."
+      />
 
       {/* ── Custom URL-based Tabs ── */}
       <div className="flex gap-4 border-b border-slate-200">
@@ -179,34 +182,34 @@ export default async function AdminSettingsPage({
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm font-medium text-slate-700">
                   <thead>
-                    <tr className="border-b border-slate-200 text-left">
-                      <th className="py-3 px-2 font-medium text-slate-500">Email</th>
-                      <th className="py-3 px-2 font-medium text-slate-500">Role</th>
-                      <th className="py-3 px-2 font-medium text-slate-500">Дневной лимит (коп.)</th>
-                      <th className="py-3 px-2 font-medium text-slate-500 text-right">Действие</th>
+                    <tr className="text-left text-[11px] uppercase tracking-widest text-slate-400 border-b border-slate-100/60 bg-slate-50/50">
+                      <th className="py-3.5 px-4 font-bold">Email</th>
+                      <th className="py-3.5 px-4 font-bold">Role</th>
+                      <th className="py-3.5 px-4 font-bold">Дневной лимит (коп.)</th>
+                      <th className="py-3.5 px-4 font-bold text-right">Действие</th>
                     </tr>
                   </thead>
                   <tbody>
                     {staffUsers.map((u) => (
-                      <tr key={u.id} className="border-b border-slate-100 hover:bg-slate-50">
-                        <td className="py-3 px-2 font-mono text-xs">{u.email}</td>
-                        <td className="py-3 px-2">
-                          <span className="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800">
+                      <tr key={u.id} className="border-b border-slate-100/30 hover:bg-slate-50/80 even:bg-slate-50/30 transition-colors last:border-0 group">
+                        <td className="py-3.5 px-4 font-mono text-xs font-bold text-slate-900 group-hover:text-sky-700 transition-colors">{u.email}</td>
+                        <td className="py-3.5 px-4">
+                          <span className="inline-flex items-center px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold rounded-md bg-emerald-50 text-emerald-700 border border-emerald-100">
                             {u.role}
                           </span>
                         </td>
-                        <td className="py-3 px-2" colSpan={2}>
+                        <td className="py-3.5 px-4" colSpan={2}>
                           <form action={updateSupportLimit} className="flex gap-2 items-center justify-end">
                             <input type="hidden" name="userId" value={u.id} />
                             <Input 
                               type="number" 
                               name="limit" 
                               defaultValue={u.supportLimitCents || 0} 
-                              className="w-32 h-8 text-right font-mono" 
+                              className="w-32 h-8 text-right font-mono bg-slate-50/50" 
                             />
-                            <Button type="submit" variant="secondary" className="h-8 px-3 text-xs border border-slate-300">Сохранить</Button>
+                            <Button type="submit" variant="secondary" className="h-8 px-3 text-xs border border-slate-300 shadow hover:-translate-y-0.5 transition-all">Сохранить</Button>
                           </form>
                         </td>
                       </tr>
@@ -225,42 +228,42 @@ export default async function AdminSettingsPage({
             <CardContent>
               <form className="flex gap-2 mb-4" action="/admin/settings" method="GET">
                 <input type="hidden" name="tab" value="team" />
-                <Input type="text" name="q" placeholder="Поиск по email..." defaultValue={searchQuery} className="h-9" />
-                <Button type="submit" variant="secondary" className="h-9 text-xs">Поиск</Button>
+                <Input type="text" name="q" placeholder="Поиск по email..." defaultValue={searchQuery} className="h-9 bg-slate-50/50" />
+                <Button type="submit" variant="secondary" className="h-9 text-xs shadow hover:-translate-y-0.5 transition-all">Поиск</Button>
               </form>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm font-medium text-slate-700">
                   <thead>
-                    <tr className="border-b border-slate-200 text-left">
-                      <th className="py-2 px-2 font-medium text-slate-500">Email</th>
-                      <th className="py-2 px-2 font-medium text-slate-500 text-right">Сменить роль</th>
+                    <tr className="text-left text-[11px] uppercase tracking-widest text-slate-400 border-b border-slate-100/60 bg-slate-50/50">
+                      <th className="py-3.5 px-4 font-bold">Email</th>
+                      <th className="py-3.5 px-4 font-bold text-right">Сменить роль</th>
                     </tr>
                   </thead>
                   <tbody>
                     {regularUsers.map((u) => (
-                      <tr key={u.id} className="border-b border-slate-100 hover:bg-slate-50">
-                        <td className="py-3 px-2 text-xs">{u.email}</td>
-                        <td className="py-3 px-2 flex justify-end">
+                      <tr key={u.id} className="border-b border-slate-100/30 hover:bg-slate-50/80 even:bg-slate-50/30 transition-colors last:border-0 group">
+                        <td className="py-3.5 px-4 text-xs font-mono font-bold text-slate-900 group-hover:text-sky-700 transition-colors">{u.email}</td>
+                        <td className="py-3.5 px-4 flex justify-end">
                           <form action={updateUserRole} className="flex gap-2 items-center">
                             <input type="hidden" name="userId" value={u.id} />
-                            <select name="role" defaultValue={u.role} className="text-xs border border-slate-200 rounded px-2 py-1 h-8 bg-white">
+                            <select name="role" defaultValue={u.role} className="text-xs border border-slate-200 rounded px-2 py-1 h-8 bg-slate-50/50 font-medium">
                               <option value="USER">USER</option>
                               <option value="SUPPORT">SUPPORT</option>
                               <option value="MANAGER">MANAGER</option>
                             </select>
-                            <Button type="submit" variant="outline" className="text-xs h-8 px-3">Назначить</Button>
+                            <Button type="submit" variant="outline" className="text-[11px] h-8 px-3 font-semibold shadow-sm hover:-translate-y-0.5 transition-transform">Назначить</Button>
                           </form>
                         </td>
                       </tr>
                     ))}
                     {regularUsers.length === 0 && searchQuery && (
                       <tr>
-                        <td colSpan={2} className="py-4 text-center text-slate-500">Не найдено</td>
+                        <td colSpan={2} className="py-12 text-center text-slate-400 font-medium tracking-wide">Не найдено</td>
                       </tr>
                     )}
                     {regularUsers.length === 0 && !searchQuery && (
                       <tr>
-                        <td colSpan={2} className="py-4 text-center text-slate-400">Введите email для поиска</td>
+                        <td colSpan={2} className="py-12 text-center text-slate-400 font-medium tracking-wide">Введите email для поиска</td>
                       </tr>
                     )}
                   </tbody>

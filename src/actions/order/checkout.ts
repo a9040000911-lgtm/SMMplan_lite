@@ -6,6 +6,7 @@ import { RateLimitService } from '@/services/core/rate-limit.service';
 import { SettingsManager } from '@/lib/settings';
 import { orderService } from '@/services/core/order.service';
 import { revalidatePath } from 'next/cache';
+import { createSession } from '@/lib/session';
 
 /**
  * Calculates price for display on the order form (no auth required).
@@ -13,13 +14,15 @@ import { revalidatePath } from 'next/cache';
 export async function calculatePriceAction(
   serviceId: string,
   quantity: number,
-  promoCodeStr?: string
+  promoCodeStr?: string,
+  runs?: number
 ): Promise<{ success: boolean; data?: PricingResult; error?: string }> {
   try {
+    const totalQuantity = (runs && runs > 0) ? quantity * runs : quantity;
     const result = await marketingService.calculatePrice(
       null, // No user context needed for price preview
       serviceId,
-      quantity,
+      totalQuantity,
       promoCodeStr
     );
     return { success: true, data: result };
@@ -55,34 +58,36 @@ export const checkoutAction = async (input: z.infer<typeof checkoutSchema>) => {
     // 0. Rate limit
     const isAllowed = await RateLimitService.check("checkoutCore", 15, 60);
     if (!isAllowed) {
-      return { success: false, error: "Слишком много запросов. Попробуйте через минуту." };
+      throw new Error("Слишком много запросов. Попробуйте через минуту.");
     }
 
     // 1. Validate email
     if (!email || !email.includes('@')) {
-      return { success: false, error: "Введите корректный email" };
+      throw new Error("Введите корректный email");
     }
 
     // 2. Validate service exists
     const service = await db.service.findUnique({ where: { id: serviceId } });
     if (!service || !service.isActive) {
-      return { success: false, error: "Услуга не найдена или неактивна" };
+      throw new Error("Услуга не найдена или неактивна");
     }
 
     if (!service.externalId) {
-      return { success: false, error: "Услуга не привязана к провайдеру" };
+      throw new Error("Услуга не привязана к провайдеру");
     }
 
     const isTestMode = await SettingsManager.isTestMode();
 
-    // 3. Calculate price
-    const pricing = await marketingService.calculatePrice(null, serviceId, quantity, promoCodeStr);
+    // 3. Find or create user by email using atomic upsert (prevents race conditions)
+    const user = await db.user.upsert({
+      where: { email: email.toLowerCase() },
+      update: {},
+      create: { email: email.toLowerCase() }
+    });
 
-    // 4. Find or create user by email
-    let user = await db.user.findUnique({ where: { email: email.toLowerCase() } });
-    if (!user) {
-      user = await db.user.create({ data: { email: email.toLowerCase() } });
-    }
+    // 4. Calculate price based on TOTAL quantity and actual User ID for Loyalty Tier eval
+    const totalQuantity = (runs && runs > 0) ? quantity * runs : quantity;
+    const pricing = await marketingService.calculatePrice(user.id, serviceId, totalQuantity, promoCodeStr);
 
     // 5. Create Order + Payment atomically
     const result = await db.$transaction(async (tx) => {
@@ -91,7 +96,7 @@ export const checkoutAction = async (input: z.infer<typeof checkoutSchema>) => {
         userId: user.id,
         serviceId,
         link,
-        quantity,
+        quantity: totalQuantity,
         email,
         status: 'AWAITING_PAYMENT',
         charge: pricing.totalCents,
@@ -127,84 +132,153 @@ export const checkoutAction = async (input: z.infer<typeof checkoutSchema>) => {
     let remoteGatewayId = '';
     const successUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/success`;
 
-    if (isTestMode) {
-      paymentUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/dev/mock-payment?paymentId=${result.paymentId}`;
-      remoteGatewayId = `dev_${result.paymentId}`; // mock ID
-    } else if (gateway === 'yookassa') {
-      // Wait, we need the secrets. We should fetch them at the top of the gateway specific block.
-      const secrets = await SettingsManager.getPaymentSecrets();
-      const shopId = secrets.yookassaShopId;
-      const secretKey = secrets.yookassaSecretKey;
-      if (!shopId || !secretKey) throw new Error('YooKassa is not configured in Admin Panel');
+    try {
+      if (gateway === 'balance') {
+        // We will perform atomic deduction inside the transaction to prevent race condition double-spending
+        await db.$transaction(async (tx) => {
+          const updatedUser = await tx.user.update({
+            where: { id: user.id },
+            data: { 
+              balance: { decrement: pricing.totalCents },
+              totalSpent: { increment: pricing.totalCents } 
+            }
+          });
 
-      const authHeader = 'Basic ' + Buffer.from(`${shopId}:${secretKey}`).toString('base64');
-      const payload = {
-        amount: { value: amountRub, currency: 'RUB' },
-        capture: true,
-        confirmation: { type: 'redirect', return_url: successUrl },
-        description: `Заказ Smmplan #${result.orderId}`,
-        metadata: { paymentId: result.paymentId, orderId: result.orderId, userId: user.id }
-      };
+          await tx.ledgerEntry.create({
+            data: {
+              userId: user.id,
+              amount: -pricing.totalCents,
+              reason: `Оплата заказа ${result.orderId} (Списание)`,
+              status: 'APPROVED'
+            }
+          });
 
-      const resp = await fetch('https://api.yookassa.ru/v3/payments', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': authHeader,
-          'Idempotence-Key': result.paymentId
-        },
-        body: JSON.stringify(payload)
-      });
+          if (updatedUser.balance < 0) {
+            throw new Error('Недостаточно средств на внутреннем балансе. Транзакция отклонена.');
+          }
 
-      if (!resp.ok) {
-        console.error('[Checkout] YooKassa API Error:', await resp.text());
-        throw new Error('Ошибка шлюза YooKassa');
-      }
+          await tx.payment.update({
+            where: { id: result.paymentId },
+            data: { status: 'SUCCEEDED', gatewayId: `internal_${Date.now()}` }
+          });
+          await tx.order.update({
+            where: { id: result.orderId },
+            data: { status: 'PENDING' }
+          });
+        });
 
-      const data = await resp.json();
-      paymentUrl = data.confirmation.confirmation_url;
-      remoteGatewayId = data.id;
+        paymentUrl = successUrl;
+        remoteGatewayId = `internal_${Date.now()}`;
+      } else if (isTestMode) {
+        paymentUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/dev/mock-payment?paymentId=${result.paymentId}`;
+        remoteGatewayId = `dev_${result.paymentId}`; // mock ID
+      } else if (gateway === 'yookassa') {
+        const secrets = await SettingsManager.getPaymentSecrets();
+        const shopId = secrets.yookassaShopId;
+        const secretKey = secrets.yookassaSecretKey;
+        if (!shopId || !secretKey) throw new Error('YooKassa is not configured in Admin Panel');
 
-    } else if (gateway === 'cryptobot') {
-      const secrets = await SettingsManager.getPaymentSecrets();
-      const cryptoToken = secrets.cryptoBotToken;
-      if (!cryptoToken) throw new Error('CryptoBot is not configured in Admin Panel');
-
-      const resp = await fetch('https://pay.crypt.bot/api/createInvoice', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Crypto-Pay-API-Token': cryptoToken
-        },
-        body: JSON.stringify({
-          currency_type: 'fiat', // Allow paying in TON but amount specified in RUB
-          fiat: 'RUB',
-          amount: amountRub,
+        const authHeader = 'Basic ' + Buffer.from(`${shopId}:${secretKey}`).toString('base64');
+        const payload = {
+          amount: { value: amountRub, currency: 'RUB' },
+          capture: true,
+          confirmation: { type: 'redirect', return_url: successUrl },
           description: `Заказ Smmplan #${result.orderId}`,
-          hidden_message: `Ваш заказ: ${result.orderId}`,
-          payload: result.paymentId
-        })
-      });
+          metadata: { paymentId: result.paymentId, orderId: result.orderId, userId: user.id }
+        };
 
-      if (!resp.ok) {
-        console.error('[Checkout] CryptoBot API Error:', await resp.text());
-        throw new Error('Ошибка шлюза CryptoBot');
+        const resp = await fetch('https://api.yookassa.ru/v3/payments', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': authHeader,
+            'Idempotence-Key': result.paymentId
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!resp.ok) {
+          console.error('[Checkout] YooKassa API Error:', await resp.text());
+          throw new Error('Ошибка шлюза YooKassa');
+        }
+
+        const data = await resp.json();
+        paymentUrl = data.confirmation.confirmation_url;
+        remoteGatewayId = data.id;
+
+      } else if (gateway === 'cryptobot') {
+        const secrets = await SettingsManager.getPaymentSecrets();
+        const cryptoToken = secrets.cryptoBotToken;
+        if (!cryptoToken) throw new Error('CryptoBot is not configured in Admin Panel');
+
+        const resp = await fetch('https://pay.crypt.bot/api/createInvoice', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Crypto-Pay-API-Token': cryptoToken
+          },
+          body: JSON.stringify({
+            currency_type: 'fiat', // Allow paying in TON but amount specified in RUB
+            fiat: 'RUB',
+            amount: amountRub,
+            description: `Заказ Smmplan #${result.orderId}`,
+            hidden_message: `Ваш заказ: ${result.orderId}`,
+            payload: result.paymentId
+          })
+        });
+
+        if (!resp.ok) {
+          console.error('[Checkout] CryptoBot API Error:', await resp.text());
+          throw new Error('Ошибка шлюза CryptoBot');
+        }
+
+        const data = await resp.json();
+        if (!data.ok) throw new Error('CryptoBot returned error: ' + JSON.stringify(data.error));
+        
+        paymentUrl = data.result.pay_url;
+        remoteGatewayId = data.result.invoice_id.toString();
       }
 
-      const data = await resp.json();
-      if (!data.ok) throw new Error('CryptoBot returned error: ' + JSON.stringify(data.error));
+      // 7. Store the remoteGatewayId on the Payment record so Webhooks can match it
+      if (remoteGatewayId) {
+        await db.payment.update({
+          where: { id: result.paymentId },
+          data: { gatewayId: remoteGatewayId }
+        });
+      }
+    } catch (gatewayErr: any) {
+      // 7.b ROLLBACK: If Gateway failed, restore PromoCode and mark Payment as ERROR safely
+      console.error('[Checkout] Gateway sequence failed, rolling back sequence', gatewayErr);
       
-      paymentUrl = data.result.pay_url;
-      remoteGatewayId = data.result.invoice_id.toString();
+      const rollbackPromises: Promise<any>[] = [
+        db.payment.update({
+          where: { id: result.paymentId },
+          data: { status: 'CANCELED' }
+        }).catch(e => console.error('[Checkout] Failed to cancel payment:', e)),
+        
+        db.order.update({
+          where: { id: result.orderId },
+          data: { status: 'ERROR', error: gatewayErr.message || 'Ошибка генерации платежа' }
+        }).catch(e => console.error('[Checkout] Failed to error order:', e))
+      ];
+
+      if (promoCodeStr) {
+        // Atomic rollback: only decrement if uses > 0 to prevent negative counters
+        rollbackPromises.push(
+          db.promoCode.updateMany({
+             where: { code: promoCodeStr, uses: { gt: 0 } },
+             data: { uses: { decrement: 1 } }
+          }).catch(e => console.error('[Checkout] Failed to rollback promo:', e))
+        );
+      }
+      
+      await Promise.allSettled(rollbackPromises);
+      
+      throw new Error(gatewayErr.message || 'Ошибка на стороне платежного шлюза. Попробуйте другой метод');
     }
 
-    // 7. Store the remoteGatewayId on the Payment record so Webhooks can match it
-    if (remoteGatewayId) {
-      await db.payment.update({
-        where: { id: result.paymentId },
-        data: { gatewayId: remoteGatewayId }
-      });
-    }
+    // 8. Auto-Login using cookies (Frictionless checkout)
+    await createSession(user.id);
 
     revalidatePath('/dashboard', 'layout');
 

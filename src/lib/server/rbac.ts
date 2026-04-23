@@ -1,16 +1,11 @@
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
 
-// Simulated Session Check (Will be replaced with NextAuth or JWT validation)
+import { verifySession } from "@/lib/session";
+
 async function getSessionUserId(): Promise<string | null> {
-  const headerList = await headers();
-  // For development security, we look for an explicit admin token, or a simulated session
-  const authHeader = headerList.get('authorization');
-  if (authHeader?.startsWith("Bearer admin_")) {
-     // If you are using explicit tokens
-     return authHeader.replace("Bearer admin_", ""); 
-  }
-  return null;
+  const sessionUser = await verifySession();
+  return sessionUser ? sessionUser.id : null;
 }
 
 import { User } from "@prisma/client";

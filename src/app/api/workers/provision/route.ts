@@ -26,9 +26,16 @@ export async function GET(request: Request) {
   let processed = 0;
   let failed = 0;
 
-  // 3. Process sequentially (or concurrent with bottleneck bounds in production)
+  // 3. Process sequentially
   for (const order of pendingOrders) {
     try {
+      // ATOMIC LOCK: Try to claim the order for processing
+      const lock = await db.order.updateMany({
+         where: { id: order.id, status: 'PENDING' },
+         data: { status: 'PROVISIONING' }
+      });
+      if (lock.count === 0) continue; // Another worker claimed it
+
       const provider = await providerService.getDefaultProvider();
       
       if (!order.service?.externalId) {
@@ -56,18 +63,60 @@ export async function GET(request: Request) {
         const newRetryCount = (order.retryCount || 0) + 1;
         const isFatal = newRetryCount >= 3;
 
-        await db.order.update({
-          where: { id: order.id },
-          data: { 
-            error: res.error || 'Failed to submit to provider',
-            retryCount: newRetryCount,
-            status: isFatal ? 'ERROR' : 'PENDING'
-          }
-        });
+        if (isFatal) {
+          await db.$transaction(async (tx) => {
+            await tx.order.update({
+              where: { id: order.id },
+              data: { 
+                error: res.error || 'Failed to submit to provider (FATAL)',
+                retryCount: newRetryCount,
+                status: 'ERROR'
+              }
+            });
+            await tx.user.update({
+              where: { id: order.userId },
+              data: { 
+                balance: { increment: order.charge },
+                totalSpent: { decrement: order.charge }
+              }
+            });
+          });
+        } else {
+          await db.order.update({
+            where: { id: order.id },
+            data: { 
+              error: res.error || 'Failed to submit to provider',
+              retryCount: newRetryCount,
+              status: 'PENDING'
+            }
+          });
+        }
         failed++;
       }
     } catch (e: any) {
       console.error(`Error provisioning order ${order.id}:`, e);
+      
+      const newRetryCount = (order.retryCount || 0) + 1;
+      const isFatal = newRetryCount >= 3;
+
+      if (isFatal) {
+        await db.$transaction(async (tx) => {
+          await tx.order.update({
+            where: { id: order.id },
+            data: { error: String(e.message || 'Worker Exception (FATAL)'), retryCount: newRetryCount, status: 'ERROR' }
+          });
+          await tx.user.update({
+            where: { id: order.userId },
+            data: { balance: { increment: order.charge }, totalSpent: { decrement: order.charge } }
+          });
+        });
+      } else {
+        await db.order.update({
+          where: { id: order.id },
+          data: { error: String(e.message || 'Worker Exception'), retryCount: newRetryCount, status: 'PENDING' }
+        });
+      }
+
       failed++;
     }
   }

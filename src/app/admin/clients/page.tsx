@@ -4,17 +4,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import Link from 'next/link';
+import { AdminPageHeader } from '@/components/admin/page-header';
 import { ClientTable } from './components/client-table';
+import { Users, Download, Search, Key, Ban, UserCheck, CreditCard, ShoppingBag } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
 const ROLE_LABELS: Record<string, { label: string; color: string }> = {
-  OWNER:   { label: 'Владелец', color: 'bg-amber-100 text-amber-800' },
-  ADMIN:   { label: 'Админ',   color: 'bg-indigo-100 text-indigo-800' },
-  MANAGER: { label: 'Менеджер', color: 'bg-emerald-100 text-emerald-800' },
-  SUPPORT: { label: 'Саппорт', color: 'bg-slate-200 text-slate-600' },
-  USER:    { label: 'Клиент',  color: 'bg-sky-100 text-sky-800' },
-  BANNED:  { label: 'Забанен', color: 'bg-red-100 text-red-800' },
+  OWNER:   { label: 'Владелец', color: 'bg-indigo-500/10 text-indigo-700 border-indigo-200' },
+  ADMIN:   { label: 'Админ',   color: 'bg-sky-500/10 text-sky-700 border-sky-200' },
+  MANAGER: { label: 'Менеджер', color: 'bg-emerald-500/10 text-emerald-700 border-emerald-200' },
+  SUPPORT: { label: 'Саппорт', color: 'bg-slate-500/10 text-slate-700 border-slate-200' },
+  USER:    { label: 'Клиент',  color: 'bg-white border-slate-200 text-slate-700' },
+  BANNED:  { label: 'Забанен', color: 'bg-rose-500/10 text-rose-700 border-rose-200' },
 };
 
 type Props = {
@@ -43,22 +45,27 @@ export default async function AdminClientsPage({ searchParams }: Props) {
   const userCard = selectedUserId ? await adminUserService.getUserCard(selectedUserId).catch(() => null) : null;
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">👥 Клиенты</h1>
-          <p className="text-slate-500 mt-1">
-            Всего: {stats.total} • Активные: {stats.active} • Забанены: {stats.banned} • Liability: {(stats.totalLiability / 100).toLocaleString('ru-RU')} ₽
-          </p>
-        </div>
-        <a
-          href={`/api/admin/export?type=users&q=${encodeURIComponent(search)}`}
-          className="inline-flex items-center px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 transition-colors"
-        >
-          📥 Экспорт CSV
-        </a>
-      </div>
+    <div className="space-y-6 w-full animate-in fade-in duration-500 ease-out sm:px-2 md:px-0 bg-slate-50/50 min-h-full pb-10">
+      <AdminPageHeader
+        icon={Users}
+        title="Клиенты платформы"
+        description={
+          <>
+            <span className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 bg-slate-400 rounded-full"></div>Всего: {stats.total}</span>
+            <span className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>Активные: {stats.active}</span>
+            <span className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 bg-rose-500 rounded-full"></div>Забанены: {stats.banned}</span>
+            <span className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>Liability: <span className="tabular-nums font-bold">{(stats.totalLiability / 100).toLocaleString('ru-RU')} ₽</span></span>
+          </>
+        }
+        action={(
+          <a
+            href={`/api/admin/export?type=users&q=${encodeURIComponent(search)}`}
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-slate-700 bg-white border border-slate-200 shadow-sm rounded-lg hover:bg-slate-50 hover:text-indigo-600 transition-colors"
+          >
+            <Download className="w-4 h-4" /> Экспорт CSV
+          </a>
+        )}
+      />
 
       {/* Search */}
       <Card>

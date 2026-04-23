@@ -2,8 +2,47 @@
 @config "../../tailwind.config.js";
 
 @theme {
-  --color-background: #ffffff;
-  --color-foreground: #171717;
+  /* ── Base ── */
+  --color-background: #f8fafc; /* slate-50 */
+  --color-foreground: #0f172a; /* slate-900 */
+
+  /* ── Card ── */
+  --color-card: #ffffff;
+  --color-card-foreground: #0f172a;
+
+  /* ── Popover ── */
+  --color-popover: #ffffff;
+  --color-popover-foreground: #0f172a;
+
+  /* ── Primary (sky-500) ── */
+  --color-primary: #0ea5e9; 
+  --color-primary-foreground: #ffffff;
+
+  /* ── Secondary (slate-100) ── */
+  --color-secondary: #f1f5f9;
+  --color-secondary-foreground: #0f172a;
+
+  /* ── Muted (slate-100 / slate-500) ── */
+  --color-muted: #f1f5f9;
+  --color-muted-foreground: #64748b;
+
+  /* ── Accent ── */
+  --color-accent: #f1f5f9;
+  --color-accent-foreground: #0f172a;
+
+  /* ── Destructive (rose-500 for better tone) ── */
+  --color-destructive: #f43f5e;
+  --color-destructive-foreground: #ffffff;
+
+  /* ── Borders & Inputs (slate-200) ── */
+  --color-border: #e2e8f0;
+  --color-input: #e2e8f0;
+
+  /* ── Focus Ring (sky-500) ── */
+  --color-ring: #0ea5e9;
+
+  /* ── Radius ── */
+  --radius: 0.75rem; /* softer, 12px default */
 }
 
 @layer base {
@@ -11,5 +50,59 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     @apply antialiased;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* ── Base (Dark) ── */
+    --color-background: #0f172a; /* slate-900 */
+    --color-foreground: #f8fafc; /* slate-50 */
+
+    /* ── Card (Dark) ── */
+    --color-card: #1e293b;
+    --color-card-foreground: #f8fafc;
+
+    /* ── Popover (Dark) ── */
+    --color-popover: #1e293b;
+    --color-popover-foreground: #f8fafc;
+
+    /* ── Primary (sky-400 for better contrast) ── */
+    --color-primary: #38bdf8;
+    --color-primary-foreground: #0f172a;
+
+    /* ── Secondary (slate-800) ── */
+    --color-secondary: #1e293b;
+    --color-secondary-foreground: #f8fafc;
+
+    /* ── Muted (slate-800 / slate-400) ── */
+    --color-muted: #1e293b;
+    --color-muted-foreground: #94a3b8;
+
+    /* ── Accent ── */
+    --color-accent: #1e293b;
+    --color-accent-foreground: #f8fafc;
+
+    /* ── Destructive (rose-500) ── */
+    --color-destructive: #f43f5e;
+    --color-destructive-foreground: #f8fafc;
+
+    /* ── Borders & Inputs (slate-700) ── */
+    --color-border: #334155;
+    --color-input: #334155;
+
+    /* ── Focus Ring (sky-400) ── */
+    --color-ring: #38bdf8;
+  }
+}
+
+/* Custom minimal scrollbar for B2B (Pillar 6) */
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none; /* Chrome, Safari and Opera */
   }
 }

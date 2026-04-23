@@ -105,21 +105,15 @@ export function DataTable<TData, TValue>({
           <Table.ScrollContainer>
             <Table.Content>
               <Table.Header className="bg-slate-50">
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <Table.Row key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => {
-                      return (
-                        <Table.Column key={header.id} className="py-3 px-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                          {header.isPlaceholder
-                            ? null
-                            : flexRender(
-                                header.column.columnDef.header,
-                                header.getContext()
-                              )}
-                        </Table.Column>
-                      );
-                    })}
-                  </Table.Row>
+                {table.getFlatHeaders().map((header, index) => (
+                  <Table.Column isRowHeader={index === 0} key={header.id} className="py-3 px-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                  </Table.Column>
                 ))}
               </Table.Header>
               <Table.Body>

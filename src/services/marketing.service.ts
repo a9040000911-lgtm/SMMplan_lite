@@ -3,6 +3,7 @@ import {
   calculateSafetyFloorCents,
   MAX_TOTAL_DISCOUNT,
   TOTAL_MANDATORY_DEDUCTIONS,
+  USD_TO_RUB,
 } from '@/lib/financial-constants';
 
 export type PricingResult = {
@@ -63,9 +64,8 @@ export class MarketingService {
     if (quantity < service.minQty || quantity > service.maxQty) {
       throw new Error(`Quantity must be between ${service.minQty} and ${service.maxQty}`);
     }
-
-    // 1. Calculate base original price in Cents
-    const providerCostPer1000Cents = service.rate * 100;
+    // 1. Calculate base original price in Cents (Convert USD provider rate to RUB Cents)
+    const providerCostPer1000Cents = service.rate * USD_TO_RUB * 100;
     const providerCostCents = Math.round((providerCostPer1000Cents / 1000) * quantity);
 
     const originalTotalCents = Math.round(providerCostCents * service.markup);
@@ -73,12 +73,17 @@ export class MarketingService {
     // 2. Discover available discounts
     const volumeTier = user ? this.getVolumeTier(user.totalSpent) : { name: 'REGULAR', discountPercent: 0.0 };
     let promoDiscountPercent = 0.0;
+    let promoFixedDiscountCents = 0;
     
     if (promoCodeStr) {
       const promo = await db.promoCode.findUnique({ where: { code: promoCodeStr } });
-      if (promo && promo.isActive && promo.uses < promo.maxUses) {
+      if (promo && promo.isActive && (promo.maxUses === 0 || promo.uses < promo.maxUses)) {
         if (!promo.expiresAt || promo.expiresAt > new Date()) {
-          promoDiscountPercent = promo.discountPercent;
+          if (promo.type === 'VOUCHER') {
+            promoFixedDiscountCents = promo.amount;
+          } else {
+            promoDiscountPercent = promo.discountPercent;
+          }
         }
       }
     }
@@ -97,15 +102,21 @@ export class MarketingService {
     }
 
     // 4. Calculate Final Cents
-    const discountCents = Math.round((originalTotalCents * maxDiscountPercent) / 100);
+    let discountCents = Math.round((originalTotalCents * maxDiscountPercent) / 100);
+    // Apply VOUCHER discount (additive to percentage, but respecting Safety Floor below)
+    if (promoFixedDiscountCents > 0) {
+      discountCents += promoFixedDiscountCents;
+    }
     let totalCents = originalTotalCents - discountCents;
 
     // 5. [SAFETY FLOOR] Never sell below break-even after taxes & gateway fees.
-    //    Old behaviour: `if (total < providerCost)` — didn't account for 14.5% deductions.
-    //    New: cost × (1 + 100%) / (1 − 14.5%) ≈ cost × 2.34
     const safetyFloorCents = calculateSafetyFloorCents(providerCostCents);
     if (totalCents < safetyFloorCents) {
       totalCents = safetyFloorCents;
+      // Recalculate true discount applied so receipts match the actual charge
+      discountCents = originalTotalCents - totalCents;
+      // Re-adjust percentage roughly for UI display
+      maxDiscountPercent = originalTotalCents > 0 ? Math.round((discountCents / originalTotalCents) * 100) : 0;
     }
 
     return {
@@ -126,13 +137,24 @@ export class MarketingService {
     if (!promoCodeStr) return;
 
     const promo = await tx.promoCode.findUnique({ where: { code: promoCodeStr } });
-    if (promo && promo.isActive && promo.uses < promo.maxUses) {
-      if (!promo.expiresAt || promo.expiresAt > new Date()) {
-        await tx.promoCode.update({
-          where: { id: promo.id },
-          data: { uses: { increment: 1 } }
-        });
-      }
+    
+    if (!promo || !promo.isActive) {
+      throw new Error('Промокод недействителен');
+    }
+    if (promo.maxUses > 0 && promo.uses >= promo.maxUses) {
+      throw new Error('Лимит использований промокода исчерпан');
+    }
+    if (promo.expiresAt && promo.expiresAt < new Date()) {
+      throw new Error('Срок действия промокода истёк');
+    }
+
+    const updatedPromo = await tx.promoCode.update({
+      where: { id: promo.id },
+      data: { uses: { increment: 1 } }
+    });
+
+    if (updatedPromo.maxUses > 0 && updatedPromo.uses > updatedPromo.maxUses) {
+      throw new Error('Лимит использований промокода исчерпан');
     }
   }
 
@@ -151,14 +173,14 @@ export class MarketingService {
 
     return services.map(s => {
       // 1. Calculate original rate in normal currency format (RUB, not cents)
-      const originalRatePer1000 = s.rate * s.markup;
+      const originalRatePer1000 = s.rate * s.markup * USD_TO_RUB;
       
       // 2. Apply highest applicable discount
       const discountVal = (originalRatePer1000 * maxDiscountPercent) / 100;
       let finalRatePer1000 = originalRatePer1000 - discountVal;
 
-      // 3. Safety Floor: never below cost × 2.34 (covers taxes + gateway + 100% margin)
-      const safetyFloor = (s.rate * (1 + 1.0)) / (1 - TOTAL_MANDATORY_DEDUCTIONS);
+      // 3. Safety Floor: never below cost × 2.34 (covers taxes + gateway + 100% margin) in RUB
+      const safetyFloor = (s.rate * USD_TO_RUB * (1 + 1.0)) / (1 - TOTAL_MANDATORY_DEDUCTIONS);
       if (finalRatePer1000 < safetyFloor) {
         finalRatePer1000 = safetyFloor;
       }

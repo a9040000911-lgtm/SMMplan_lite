@@ -10,6 +10,7 @@ import {
   applyPricingLadder,
   applyBeautifulRounding,
   DEFAULT_PRICING_LADDER,
+  USD_TO_RUB,
 } from '@/lib/financial-constants';
 
 // ── Types ──
@@ -39,6 +40,9 @@ export type ProviderExternalService = {
   min: string;
   max: string;
   category: string;
+  dripfeed?: boolean;
+  refill?: boolean;
+  cancel?: boolean;
 };
 
 // Anomaly threshold is now imported from financial-constants.ts
@@ -183,8 +187,10 @@ export class AdminCatalogService {
       if (defaultMarkup <= 0) {
         // Auto-calculate from Pricing Ladder: ladder returns retail price,
         // so we compute markup = retailPrice / costPrice
-        const retailFromLadder = applyPricingLadder(rawRate);
-        effectiveMarkup = rawRate > 0 ? Math.round((retailFromLadder / rawRate) * 100) / 100 : 3.0;
+        // IMPORTANT: rawRate is in USD. The Pricing Ladder expects RUB.
+        // We use the global `USD_TO_RUB` exchange rate to determine the correct ladder tier.
+        const retailFromLadder = applyPricingLadder(rawRate * USD_TO_RUB);
+        effectiveMarkup = rawRate > 0 ? Math.round((retailFromLadder / (rawRate * USD_TO_RUB)) * 100) / 100 : 3.0;
       }
 
       await db.service.create({
@@ -197,6 +203,9 @@ export class AdminCatalogService {
           minQty: parseInt(ext.min, 10) || 10,
           maxQty: parseInt(ext.max, 10) || 100000,
           isActive: true,
+          isDripFeedEnabled: ext.dripfeed ?? false,
+          isRefillEnabled: ext.refill ?? false,
+          isCancelEnabled: ext.cancel ?? false,
           lastSeenAt: new Date(),
         },
       });
@@ -270,8 +279,8 @@ export class AdminCatalogService {
     newMarkup: number,
     admin: { id: string; email: string }
   ): Promise<{ updatedCount: number }> {
-    if (newMarkup < 1.0 || newMarkup > 151.0) {
-      throw new Error('Наценка должна быть в диапазоне 1.0–151.0');
+    if (newMarkup !== 0 && (newMarkup < 1.0 || newMarkup > 151.0)) {
+      throw new Error('Наценка должна быть в диапазоне 1.0–151.0 или 0 (автокалькуляция)');
     }
 
     const where: Record<string, unknown> = {};
@@ -279,13 +288,36 @@ export class AdminCatalogService {
       where.categoryId = filter.categoryId;
     }
     if (filter.platform) {
-      where.category = { platform: filter.platform };
+      where.category = { network: { slug: filter.platform } };
     }
 
-    const result = await db.service.updateMany({
-      where,
-      data: { markup: newMarkup },
-    });
+    let updatedCount = 0;
+
+    if (newMarkup <= 0) {
+      // Auto-calculate from Pricing Ladder
+      const services = await db.service.findMany({ where, select: { id: true, rate: true } });
+      const updates = services.map(s => {
+         const retailFromLadder = applyPricingLadder(s.rate * USD_TO_RUB);
+         const calculatedMarkup = s.rate > 0 ? Math.round((retailFromLadder / (s.rate * USD_TO_RUB)) * 100) / 100 : 3.0;
+         return db.service.update({
+            where: { id: s.id },
+            data: { markup: calculatedMarkup }
+         });
+      });
+
+      // Execute in chunks to avoid blowing up memory with too many queries
+      for (let i = 0; i < updates.length; i += 50) {
+         await db.$transaction(updates.slice(i, i + 50));
+      }
+      updatedCount = services.length;
+    } else {
+      // Set fixed markup
+      const result = await db.service.updateMany({
+        where,
+        data: { markup: newMarkup },
+      });
+      updatedCount = result.count;
+    }
 
     auditAdmin({
       adminId: admin.id,
@@ -293,10 +325,10 @@ export class AdminCatalogService {
       action: 'BULK_MARKUP_UPDATE',
       target: filter.categoryId || filter.platform || 'ALL',
       targetType: 'SERVICE',
-      newValue: { markup: newMarkup, filter, updatedCount: result.count },
+      newValue: { markup: newMarkup <= 0 ? 'AUTO' : newMarkup, filter, updatedCount },
     });
 
-    return { updatedCount: result.count };
+    return { updatedCount };
   }
 
   /**

@@ -8,6 +8,7 @@ export interface ProviderServiceData {
   max: string;
   refill: boolean;
   cancel: boolean;
+  dripfeed?: boolean;
 }
 
 export interface ProviderOrderResult {

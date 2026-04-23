@@ -30,7 +30,7 @@ describe('B2B API v2: Zod & Compatibility', () => {
       data: {
         name: 'API Service 1',
         categoryId: category.id,
-        rate: 100, // Rate in Float representation (100 RUB per 1k)
+        rate: 100 / 95, // Rate in USD (1.0526 USD = 100 RUB per 1k)
         markup: 1.5, // Total cost per 1k should be 150 RUB
         minQty: 10,
         maxQty: 10000,

@@ -14,13 +14,13 @@ export const ORDER_STATUS_LABELS: Record<string, string> = {
 };
 
 export const ORDER_STATUS_COLORS: Record<string, string> = {
-  AWAITING_PAYMENT: 'text-amber-600 bg-amber-50',
-  PENDING: 'text-yellow-600 bg-yellow-50',
-  IN_PROGRESS: 'text-blue-600 bg-blue-50',
-  COMPLETED: 'text-emerald-600 bg-emerald-50',
-  PARTIAL: 'text-orange-600 bg-orange-50',
-  CANCELED: 'text-red-600 bg-red-50',
-  ERROR: 'text-zinc-600 bg-zinc-100',
+  AWAITING_PAYMENT: 'text-muted-foreground bg-secondary',
+  PENDING: 'text-accent-foreground bg-accent',
+  IN_PROGRESS: 'text-primary bg-primary/10',
+  COMPLETED: 'text-primary-foreground bg-primary',
+  PARTIAL: 'text-foreground bg-secondary',
+  CANCELED: 'text-destructive-foreground bg-destructive',
+  ERROR: 'text-destructive-foreground bg-destructive',
 };
 
 export const PAYMENT_STATUS_LABELS: Record<string, string> = {

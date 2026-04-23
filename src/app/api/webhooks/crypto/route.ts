@@ -30,12 +30,30 @@ export async function POST(request: Request) {
     if (data.update_type === 'invoice_paid') {
       const invoice = data.payload;
       // The payment logic has been centralized. We use confirmPayment.
-      // We pass `invoice.payload` as it contains our internal `paymentId` due to checkout.ts mapping it.
-      // But confirmPayment currently expects `gatewayId` (the invoice ID).
-      const gatewayId = invoice.invoice_id.toString();
-      const amount = Math.round(parseFloat(invoice.amount || '0') * 100);
+      const paymentId = invoice.payload;
+      const payment = await db.payment.findUnique({ where: { id: paymentId } });
+      
+      if (!payment) {
+         console.error(`[Webhook] Payment record not found for payload ${paymentId}`);
+         // Can't confirm without knowing the userId for the orphan fallback/promo logic
+         return NextResponse.json({ error: 'Payment context missing' }, { status: 400 });
+      }
 
-      const success = await paymentService.confirmPayment(gatewayId, amount, invoice.payload /* userId map isn't needed here if we match by gatewayId, but we can pass it if we parse payload */, false);
+      const gatewayId = invoice.invoice_id.toString();
+      
+      // Strict Integer parsing complying with IEEE 754 financial rules
+      const rawAmountStr = String(invoice.amount || '0.00');
+      const [intPart, decPart] = rawAmountStr.split('.');
+      const amount = parseInt(intPart || '0', 10) * 100 + parseInt((decPart || '00').padEnd(2, '0').slice(0, 2), 10);
+
+      const success = await paymentService.confirmPayment(
+        gatewayId, 
+        amount, 
+        payment.userId, // Real userId retrieved from db, NOT the paymentId
+        false,
+        'cryptobot',
+        payment.id // Prevent orphan race condition
+      );
 
       if (!success) {
          return NextResponse.json({ error: 'Payment double-check validation failed' }, { status: 400 });

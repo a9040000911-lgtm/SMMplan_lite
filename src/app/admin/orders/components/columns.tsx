@@ -112,59 +112,55 @@ export const columns: ColumnDef<OrderColumn>[] = [
     cell: ({ row }) => {
       const order = row.original;
       return (
-        <div className="flex flex-col text-xs py-1 leading-snug">
-          <div>
-            <span className="text-slate-600">Соцсеть: </span>
-            <span className="text-sky-600">{order.service.category.network?.name || 'Без сети'}</span>
+        <div className="flex flex-col text-xs py-1.5 leading-snug">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="font-bold text-slate-900 truncate max-w-[200px]" title={order.service.name}>
+              {order.service.name}
+            </span>
+            <span className="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 font-bold tabular-nums text-[10px]">
+              x{order.quantity.toLocaleString('ru-RU')}
+            </span>
           </div>
-          <div>
-            <span className="text-slate-600">Категория: </span>
-            <span className="text-sky-600">{order.service.category.name}</span>
+          
+          <div className="text-[11px] text-slate-500 mb-1.5 font-medium flex items-center gap-1.5 flex-wrap">
+            <span>{order.service.category.network?.name || 'Без сети'}</span>
+            <span className="text-slate-300">•</span>
+            <span className="truncate max-w-[150px]">{order.service.category.name}</span>
           </div>
-          <div>
-            <span className="text-slate-600">Тариф: </span>
-            <span className="text-sky-600">{order.service.name}</span>
-          </div>
-          <div className="flex gap-1 border-b border-slate-100 pb-2 mb-2">
-            <span className="text-slate-600 whitespace-nowrap">Ссылка: </span>
+
+          <div className="flex gap-1 items-center bg-slate-50 border border-slate-100 rounded p-1.5 max-w-[250px] overflow-hidden group">
+            <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
             <a
               href={order.link}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sky-600 hover:underline break-all"
+              className="text-sky-600 hover:text-sky-800 hover:underline truncate font-mono text-[10px] transition-colors"
+              title={order.link}
             >
               {order.link}
             </a>
           </div>
-          <div>
-            <span className="text-slate-600">Кол-во: </span>
-            <span className="text-slate-900 tabular-nums font-medium">{order.quantity.toLocaleString('ru-RU')}</span>
-          </div>
-          <div>
-            <span className="text-slate-600">Дата создания: </span>
-            <span className="text-slate-900">
-              {new Date(order.createdAt).getFullYear()}-{String(new Date(order.createdAt).getMonth() + 1).padStart(2, '0')}-{String(new Date(order.createdAt).getDate()).padStart(2, '0')} {String(new Date(order.createdAt).getHours()).padStart(2, '0')}:{String(new Date(order.createdAt).getMinutes()).padStart(2, '0')}:{String(new Date(order.createdAt).getSeconds()).padStart(2, '0')}
-            </span>
-          </div>
           
           <details className="mt-2 group">
-            <summary className="text-slate-500 hover:text-slate-800 cursor-pointer text-[11px] font-medium select-none list-none inline-flex items-center gap-1 transition-colors">
-              <span className="group-open:hidden">▶ Детали</span>
-              <span className="hidden group-open:block">▼ Скрыть детали</span>
+            <summary className="text-slate-400 hover:text-slate-700 cursor-pointer text-[10px] uppercase tracking-wider font-bold select-none list-none inline-flex items-center gap-1 transition-colors">
+              <span className="group-open:hidden">▶ Tech Details</span>
+              <span className="hidden group-open:block">▼ Hide Details</span>
             </summary>
-            <div className="mt-2 bg-slate-50 p-2 border border-slate-100 rounded-md space-y-1">
-              <div className="flex gap-2">
-                <span className="text-slate-500 min-w-[100px]">ID Провайдера:</span>
-                <span className="text-slate-700 font-mono">{order.externalId || '—'}</span>
+            <div className="mt-2 bg-slate-50 p-2.5 border border-slate-100 rounded-md space-y-1.5 shadow-inner">
+              <div className="flex justify-between items-center text-[11px]">
+                <span className="text-slate-500 font-medium">Provider ID:</span>
+                <span className="text-slate-800 font-mono font-semibold">{order.externalId || '—'}</span>
               </div>
-              <div className="flex gap-2">
-                <span className="text-slate-500 min-w-[100px]">Себестоимость:</span>
-                <span className="text-slate-700">{(order.providerCost / 100).toFixed(2)} ₽</span>
+              <div className="flex justify-between items-center text-[11px]">
+                <span className="text-slate-500 font-medium">Себестоимость:</span>
+                <span className="text-slate-800 font-mono font-semibold">{(order.providerCost / 100).toFixed(2)} ₽</span>
               </div>
-              <div className="flex gap-2">
-                <span className="text-slate-500 min-w-[100px]">Ошибка API:</span>
-                <span className={order.error ? "text-red-600 font-medium" : "text-emerald-600"}>{order.error || 'Нет ошибок'}</span>
-              </div>
+              {order.error && (
+                <div className="flex justify-between items-center text-[11px] pt-1 border-t border-slate-200 mt-1 pb-0.5">
+                  <span className="text-rose-500 font-medium">Ошибка API:</span>
+                  <span className="text-rose-600 font-medium text-right max-w-[150px] truncate" title={order.error}>{order.error}</span>
+                </div>
+              )}
             </div>
           </details>
         </div>

@@ -43,7 +43,7 @@ export class AccountingService {
     let refunds = 0;
     for (const order of refundedOrders) {
       if (order.quantity > 0 && order.remains > 0) {
-        refunds += Math.round((order.remains / order.quantity) * order.charge);
+        refunds += Math.floor((order.remains / order.quantity) * order.charge);
       } else if (order.status === 'CANCELED') {
         refunds += order.charge;
       }
@@ -63,7 +63,7 @@ export class AccountingService {
       // E.g., we set providerCost = 50 for 1000 items. If remains is 100, actual COGS is 45.
       if (order.quantity > 0) {
         const deliveredQty = order.quantity - order.remains;
-        cogs += Math.round((deliveredQty / order.quantity) * order.providerCost);
+        cogs += Math.floor((deliveredQty / order.quantity) * order.providerCost);
       }
     }
 

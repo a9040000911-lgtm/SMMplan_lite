@@ -23,14 +23,14 @@ const ICON_MAP: Record<string, React.ElementType> = {
 };
 
 export function AdminSidebar({ userEmail, roleInfo, visibleTabs }: SidebarProps) {
-  const [collapsed, setCollapsed] = React.useState(false);
+  const [collapsed, setCollapsed] = React.useState(true);
   const pathname = usePathname();
 
   return (
     <aside 
       className={cn(
         "relative z-20 flex-shrink-0 transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] group hidden md:flex flex-col",
-        "rounded-none bg-[#0B1120]/95 backdrop-blur-3xl border-r border-white/5 overflow-hidden",
+        "bg-slate-950/98 backdrop-blur-3xl border-r border-slate-800/60 overflow-hidden",
         collapsed ? "w-20" : "w-[280px]"
       )}
     >
@@ -38,7 +38,7 @@ export function AdminSidebar({ userEmail, roleInfo, visibleTabs }: SidebarProps)
       <div className={cn("absolute z-50 transition-all duration-500", collapsed ? "top-6 left-1/2 -translate-x-1/2" : "top-7 right-4")}>
         <button 
           onClick={() => setCollapsed(!collapsed)}
-          className="flex items-center justify-center w-8 h-8 rounded-sm bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-indigo-500/20 hover:border-indigo-500/30 opacity-0 group-hover:opacity-100 transition-all duration-300 transform hover:scale-110"
+          className="flex items-center justify-center w-8 h-8 rounded-md bg-white/5 border border-white/5 text-slate-400 hover:text-white hover:bg-sky-500/20 hover:border-sky-500/30 opacity-0 group-hover:opacity-100 transition-all duration-300 transform hover:scale-105"
         >
           {collapsed ? <PanelLeftOpen className="w-4 h-4 ml-0.5" /> : <PanelLeftClose className="w-4 h-4 mr-0.5" />}
         </button>
@@ -47,7 +47,7 @@ export function AdminSidebar({ userEmail, roleInfo, visibleTabs }: SidebarProps)
       {/* Header Profile Area */}
       <div className={cn("pt-8 pb-6 px-6 transition-all duration-300 relative", collapsed ? "opacity-0 invisible h-0 p-0" : "opacity-100")}>
         {/* Subtle glow behind logo */}
-        <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none" />
+        <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-sky-500/10 to-transparent pointer-events-none" />
         
         <h2 className="text-xl font-extrabold tracking-tight mb-1 bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
           Smmplan
@@ -55,17 +55,17 @@ export function AdminSidebar({ userEmail, roleInfo, visibleTabs }: SidebarProps)
         <p className="text-[11px] text-slate-400 font-medium truncate mb-3 tracking-wide">{userEmail}</p>
         <div className="flex items-center gap-2">
           <span className={cn(
-            "inline-flex items-center px-2.5 py-1 text-[10px] rounded-sm uppercase font-bold tracking-wider shadow-sm border border-white/5",
-            roleInfo.color.replace('bg-', 'bg-').replace('text-', 'text-') /* Colors are already passed, keep mapping but modernize if necessary */
+            "inline-flex items-center px-2.5 py-1 text-[10px] rounded-md uppercase font-bold tracking-wider shadow-sm border border-white/5",
+            roleInfo.color
           )}>
-            <div className="w-1.5 h-1.5 rounded-none bg-current opacity-70 mr-1.5 animate-pulse" />
+            <div className="w-1.5 h-1.5 rounded-full bg-current opacity-70 mr-1.5 animate-pulse" />
             {roleInfo.label}
           </span>
         </div>
       </div>
 
       <nav className={cn(
-        "flex-1 px-3 py-4 space-y-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
+        "flex-1 px-3 py-4 space-y-1 overflow-y-auto scrollbar-hide",
         collapsed && "pt-20"
       )}>
         <div className={cn("mb-4 px-1", collapsed && "hidden")}>
@@ -81,29 +81,29 @@ export function AdminSidebar({ userEmail, roleInfo, visibleTabs }: SidebarProps)
               href={tab.href}
               title={collapsed ? tab.label : undefined}
               className={cn(
-                "relative flex items-center px-3 py-2.5 mb-1 text-sm font-medium rounded-sm transition-all duration-300 whitespace-nowrap overflow-hidden group",
+                "relative flex items-center px-3 py-2.5 mb-1 text-sm font-medium rounded-lg transition-all duration-300 whitespace-nowrap overflow-hidden group",
                 isActive 
-                  ? "bg-indigo-500/10 text-indigo-400" 
+                  ? "bg-sky-500/10 text-sky-400" 
                   : "text-slate-400 hover:bg-white/5 hover:text-slate-200",
                 collapsed && "justify-center px-0 w-12 h-12 mx-auto"
               )}
             >
               {/* Active Indicator Line */}
               {isActive && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-3/4 bg-indigo-500 rounded-r-sm shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-3/4 bg-sky-500 rounded-r-full shadow-[0_0_12px_rgba(14,165,233,0.6)]" />
               )}
               
               <span className={cn(
                 "transition-transform duration-300 group-hover:scale-110", 
                 collapsed ? "" : "mr-3.5 w-5 text-center flex justify-center",
-                isActive && "drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]"
+                isActive && "drop-shadow-[0_0_8px_rgba(14,165,233,0.5)]"
               )}>
                 <IconComponent className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={isActive ? 2.5 : 2} />
               </span>
               {!collapsed && <span className={cn("tracking-wide transition-all", isActive && "font-semibold")}>{tab.label}</span>}
               
               {/* Hover Glow Behind */}
-              <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/0 via-indigo-500/0 to-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-sm" />
+              <div className="absolute inset-0 bg-gradient-to-r from-sky-500/0 via-sky-500/0 to-sky-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-lg" />
             </Link>
           );
         })}

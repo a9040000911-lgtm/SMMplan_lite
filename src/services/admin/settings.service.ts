@@ -36,7 +36,7 @@ export class SettingsService {
   }
 
   async updateUserRole(userId: string, role: string) {
-    const validRoles = ['USER', 'SUPPORT', 'ADMIN'];
+    const validRoles = ['USER', 'SUPPORT', 'MANAGER', 'ADMIN'];
     if (!validRoles.includes(role)) throw new Error(`Invalid role: ${role}`);
     return db.user.update({
       where: { id: userId },

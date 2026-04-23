@@ -25,7 +25,7 @@ const importServicesSchema = z.object({
 const bulkUpdateMarkupSchema = z.object({
   categoryId: z.string().nullable().optional(),
   platform: z.string().nullable().optional(),
-  markup: z.coerce.number().min(1.0).max(151.0)
+  markup: z.coerce.number().min(0).max(151.0)
 });
 
 async function requireManager() {

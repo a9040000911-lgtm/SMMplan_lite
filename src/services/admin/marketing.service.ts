@@ -86,6 +86,10 @@ export const adminMarketingService = {
       if (user.referralBalance < amountToPayCents) {
         throw new Error('Insufficient referral balance');
       }
+      
+      if (user.referralBalance !== amountToPayCents) {
+        throw new Error('Partial payouts are not supported to maintain financial data integrity. Payout amount must exactly match the full referral balance.');
+      }
 
       // Deduct from referral
       const updatedUser = await tx.user.update({
@@ -95,6 +99,10 @@ export const adminMarketingService = {
           balance: { increment: amountToPayCents },
         },
       });
+
+      if (updatedUser.referralBalance < 0) {
+        throw new Error('Insufficient referral balance. Concurrent payout detected.');
+      }
 
       // Mark all pending commissions for this user as PAID (simplified approach, or we could leave them as is if we just treat balance as an aggregate container)
       await tx.commission.updateMany({

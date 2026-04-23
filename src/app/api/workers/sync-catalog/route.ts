@@ -33,39 +33,30 @@ export async function GET(request: Request) {
       where: { externalId: { not: null } }
     });
 
-    let updatedCnt = 0;
-    let disabledCnt = 0;
-    let unchangedCnt = 0;
-    let jitteredCnt = 0;
-    const anomalies: string[] = [];
+    const toDisable: string[] = [];
+    const toUpdateLastSeen: string[] = [];
+    const toUpdateRate: { id: string, rate: number, isActive: boolean }[] = [];
+    const toDecreaseGuard: { id: string, dataHash: string }[] = [];
 
+    // 1. Group operations
     for (const localService of internalServices) {
       if (!localService.externalId) continue;
 
       const externalMeta = externalMap.get(localService.externalId);
 
       if (!externalMeta) {
-        // The provider has removed this service completely. 
-        // We must safe-guard our users by neutralizing it.
         if (localService.isActive) {
-          await db.service.update({
-            where: { id: localService.id },
-            data: { isActive: false, lastSeenAt: null }
-          });
+          toDisable.push(localService.id);
           disabledCnt++;
         }
       } else {
-        // Provider Service Exists. Check if rate changed.
         const newRate = parseFloat(externalMeta.rate);
         const oldRate = localService.rate;
         
-        // ─── ANTI-JITTER: Ignore rate changes smaller than 5% ────────
-        // This prevents the storefront from "flickering" due to micro-fluctuations
-        // in provider pricing (often caused by USD→RUB conversion noise).
+        // ─── ANTI-JITTER ────────
         if (oldRate > 0 && newRate > 0) {
           const changePercent = Math.abs((newRate - oldRate) / oldRate);
           
-          // ─── ANOMALY DETECTION: Alert on large price swings ────────
           if (changePercent >= SYNC_ANOMALY_THRESHOLD) {
             const direction = newRate > oldRate ? '📈' : '📉';
             anomalies.push(
@@ -74,69 +65,78 @@ export async function GET(request: Request) {
           }
           
           if (changePercent < SYNC_JITTER_THRESHOLD) {
-            // Micro-change — update lastSeenAt but DO NOT change storefront rate.
-            await db.service.update({
-              where: { id: localService.id },
-              data: { lastSeenAt: new Date() }
-            });
+            toUpdateLastSeen.push(localService.id);
             jitteredCnt++;
             continue;
           }
         }
 
         // ─── AUTO-DECREASE GUARD ─────────────────────────────────────
-        // By default, prices only go UP during sync. If the provider lowers
-        // their rate, we preserve our current (higher) rate to protect margins.
-        // Admin can manually lower prices when they choose to.
-        const isIncrease = newRate > oldRate;
         const isDecrease = newRate < oldRate;
 
         if (isDecrease) {
-          // Provider lowered price — DON'T lower our rate automatically.
-          // Just update metadata so admin can see the delta.
-          await db.service.update({
-            where: { id: localService.id },
-            data: { 
-              lastSeenAt: new Date(),
-              // Store the new provider rate in dataHash field as indicator
-              // that a manual review is needed
-              dataHash: `pending_decrease:${newRate.toFixed(6)}`
-            }
+          toDecreaseGuard.push({ 
+            id: localService.id, 
+            dataHash: `pending_decrease:${newRate.toFixed(6)}` 
           });
           unchangedCnt++;
           continue;
         }
 
-        if (isIncrease || localService.rate !== newRate) {
-          // Price INCREASED or was never set — update to protect from selling at loss
-          await db.service.update({
-            where: { id: localService.id },
-            data: { 
-              rate: newRate, 
-              lastSeenAt: new Date(),
-              dataHash: null, // Clear any pending decrease
-              isActive: true  // Re-activate if it was previously deactivated
-            }
-          });
+        const isIncrease = newRate > oldRate;
+        if (isIncrease || localService.rate !== newRate || !localService.isActive) {
+          toUpdateRate.push({ id: localService.id, rate: newRate, isActive: true });
           updatedCnt++;
         } else {
-          // Rate is the same — just ensure it's active
-          if (!localService.isActive) {
-            await db.service.update({
-              where: { id: localService.id },
-              data: { isActive: true, lastSeenAt: new Date() }
-            });
-            updatedCnt++;
-          } else {
-            await db.service.update({
-              where: { id: localService.id },
-              data: { lastSeenAt: new Date() }
-            });
-            unchangedCnt++;
-          }
+          toUpdateLastSeen.push(localService.id);
+          unchangedCnt++;
         }
       }
     }
+
+    // 2. Execute chunked mass updates
+    await db.$transaction(async (tx) => {
+      // Disable missing
+      if (toDisable.length > 0) {
+        await tx.service.updateMany({
+          where: { id: { in: toDisable } },
+          data: { isActive: false, lastSeenAt: null }
+        });
+      }
+
+      // Update Last Seen only
+      if (toUpdateLastSeen.length > 0) {
+        // Chunk array to avoid SQL string limits
+        for (let i = 0; i < toUpdateLastSeen.length; i += 500) {
+          await tx.service.updateMany({
+            where: { id: { in: toUpdateLastSeen.slice(i, i + 500) } },
+            data: { lastSeenAt: new Date() }
+          });
+        }
+      }
+
+      // Decrease Guard (needs precise dataHash per row)
+      const now = new Date();
+      for (const item of toDecreaseGuard) {
+        await tx.service.update({
+          where: { id: item.id },
+          data: { lastSeenAt: now, dataHash: item.dataHash }
+        });
+      }
+
+      // Update Rate & Reactivate
+      for (const item of toUpdateRate) {
+        await tx.service.update({
+          where: { id: item.id },
+          data: { 
+            rate: item.rate, 
+            lastSeenAt: now, 
+            dataHash: null, 
+            isActive: item.isActive 
+          }
+        });
+      }
+    });
 
     // ─── ANOMALY ALERTS ──────────────────────────────────────────
     if (anomalies.length > 0) {

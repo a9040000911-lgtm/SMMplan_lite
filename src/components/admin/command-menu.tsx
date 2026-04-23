@@ -51,7 +51,7 @@ export function CommandMenu() {
     <>
       <Button
         variant="outline"
-        className="relative h-9 w-full justify-start rounded-[0.5rem] bg-slate-900 text-sm text-slate-400 sm:pr-12 md:w-full hover:bg-slate-800 hover:text-white border-slate-700 mx-4 hidden md:flex mb-4"
+        className="relative h-9 w-full justify-start rounded-[0.5rem] bg-slate-900 text-sm text-slate-400 sm:pr-12 hover:bg-slate-800 hover:text-white border-slate-700 flex mb-4"
         onClick={() => setOpen(true)}
       >
         <Search className="mr-2 h-4 w-4" />

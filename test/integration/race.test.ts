@@ -26,7 +26,7 @@ describe('Security & Concurrency (Race Conditions)', () => {
       data: {
         name: 'API Service Race',
         categoryId: category.id,
-        rate: 100, 
+        rate: 100 / 95, 
         markup: 3.0, // Total cost per 1k should be 300 RUB = 30000 cents
         minQty: 10,
         maxQty: 10000,

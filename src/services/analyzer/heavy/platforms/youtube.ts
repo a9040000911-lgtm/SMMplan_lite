@@ -11,7 +11,7 @@ export const YoutubeParser: PlatformParser = {
     domains: ['youtube.com', 'youtu.be', 'youtube-nocookie.com', 'm.youtube.com'],
     parse(url: string): AnalysisResult | null {
         if (url.includes('/shorts/')) {
-            return { platform: 'YOUTUBE' as Platform, possibleCategories: ['VIEWS' as Category, 'LIKES' as Category, 'REPOSTS' as Category, 'COMMENTS' as Category], objectType: 'YT_SHORT' };
+            return { platform: 'YOUTUBE' as Platform, possibleCategories: ['VIEWS' as Category, 'LIKES' as Category, 'REPOSTS' as Category, 'COMMENTS' as Category], objectType: 'YT_SHORTS' };
         }
         if (url.includes('/live') || url.includes('/c/') || url.includes('/channel/') || url.includes('/user/') || url.includes('@')) {
             if (url.includes('/live')) return { platform: 'YOUTUBE' as Platform, possibleCategories: ['VIEWS' as Category, 'LIKES' as Category, 'COMMENTS' as Category], objectType: 'YT_LIVE' };
@@ -20,7 +20,11 @@ export const YoutubeParser: PlatformParser = {
         if (url.includes('playlist')) {
             return { platform: 'YOUTUBE' as Platform, possibleCategories: ['VIEWS' as Category], objectType: 'YT_PLAYLIST' };
         }
-        if (url.includes('watch') || url.includes('youtu.be')) {
+        if (url.includes('/post/')) {
+            // Community Posts
+            return { platform: 'YOUTUBE' as Platform, possibleCategories: ['LIKES' as Category, 'COMMENTS' as Category], objectType: 'YT_POST' };
+        }
+        if (url.match(/watch|youtu\.be|\/v\/|\/embed\//)) {
             return { platform: 'YOUTUBE' as Platform, possibleCategories: ['VIEWS' as Category, 'LIKES' as Category, 'REPOSTS' as Category, 'COMMENTS' as Category, 'WATCH_TIME' as Category], objectType: 'YT_VIDEO' };
         }
         return { platform: 'YOUTUBE' as Platform, possibleCategories: ['SUBSCRIBERS' as Category], objectType: 'YT_CHANNEL' };

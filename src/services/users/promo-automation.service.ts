@@ -23,8 +23,9 @@ export class PromoAutomationService {
 
       for (const rule of rules) {
         if (totalSpentCents >= rule.spendThreshold) {
-          // Idempotency: Ensure we don't issue the 10% bonus twice to the same user
-          const deterministicCode = `VIP${rule.percent}-${userId.substring(0, 6).toUpperCase()}`;
+          // Idempotency: Ensure we don't issue the same bonus twice to the same user
+          const uniqueHash = crypto.createHash('md5').update(userId).digest('hex').substring(0, 6).toUpperCase();
+          const deterministicCode = `VIP${rule.percent}-${uniqueHash}`;
 
           const existing = await db.promoCode.findUnique({
             where: { code: deterministicCode }

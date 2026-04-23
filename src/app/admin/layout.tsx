@@ -26,10 +26,10 @@ const ADMIN_TABS = [
 ];
 
 const ROLE_LABELS: Record<string, { label: string; color: string }> = {
-  OWNER:   { label: 'Владелец',  color: 'bg-amber-100 text-amber-700' },
-  ADMIN:   { label: 'Админ',     color: 'bg-sky-100 text-sky-700' },
-  MANAGER: { label: 'Менеджер',  color: 'bg-emerald-100 text-emerald-700' },
-  SUPPORT: { label: 'Саппорт',   color: 'bg-slate-200 text-slate-700' },
+  OWNER:   { label: 'Владелец',  color: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
+  ADMIN:   { label: 'Админ',     color: 'bg-sky-500/20 text-sky-400 border-sky-500/30' },
+  MANAGER: { label: 'Менеджер',  color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
+  SUPPORT: { label: 'Саппорт',   color: 'bg-slate-500/40 text-slate-300 border-slate-500/30' },
 };
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
@@ -49,9 +49,9 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   const roleInfo = ROLE_LABELS[user.role] || { label: user.role, color: 'bg-slate-100 text-slate-800' };
 
   return (
-    <div className="h-screen w-full overflow-hidden bg-slate-50/80 flex flex-col md:flex-row relative selection:bg-indigo-100 selection:text-indigo-900">
+    <div className="h-screen w-full overflow-hidden bg-slate-50 flex flex-col md:flex-row relative selection:bg-sky-100 selection:text-sky-900">
       {/* Soft Ambient Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/50 via-slate-50/80 to-sky-50/30 pointer-events-none z-0" />
+      <div className="absolute inset-0 bg-gradient-to-br from-sky-50/40 via-slate-50/80 to-blue-50/30 pointer-events-none z-0" />
 
       <AdminSidebar 
         userEmail={user.email}
@@ -70,8 +70,8 @@ export default async function AdminLayout({ children }: { children: ReactNode })
       </aside>
 
       {/* Floating Main Content Area */}
-      <div className="flex-1 max-h-screen overflow-hidden p-0 z-10 relative flex flex-col">
-        <main className="flex-1 rounded-none bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] border-l border-slate-200/70 overflow-x-hidden overflow-y-auto [scrollbar-width:none] relative transition-all duration-300">
+      <div className="flex-1 max-h-screen overflow-hidden p-2 md:p-4 z-10 relative flex flex-col">
+        <main className="flex-1 rounded-2xl bg-white/95 backdrop-blur-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-200/50 overflow-x-hidden overflow-y-auto scrollbar-hide relative transition-all duration-300">
           <div className="min-h-full p-4 md:p-8 lg:p-10">
             {children}
           </div>

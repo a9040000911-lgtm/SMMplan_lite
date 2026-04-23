@@ -19,7 +19,7 @@ export async function savePage(formData: FormData) {
   if (!session) throw new Error('Unauthorized');
 
   const user = await db.user.findUnique({ where: { id: session.userId } });
-  if (!user || user.role !== 'ADMIN') throw new Error('Forbidden'); // Only full ADMIN can edit CMS
+  if (!user || (user.role !== 'ADMIN' && user.role !== 'OWNER')) throw new Error('Forbidden'); // Only ADMIN/OWNER can edit CMS
 
   const parsed = pageSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return;

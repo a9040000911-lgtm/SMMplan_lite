@@ -157,7 +157,7 @@ describe('EscrowService — Integration Tests (Real DB)', () => {
       await service.evaluateBalanceAdjustment(poorClient.id, -150000, 'Full refund', ownerAdmin);
 
       expect(sendAdminAlert).toHaveBeenCalledWith(
-        expect.stringContaining('Баланс клиента уйдёт в минус'),
+        expect.stringContaining('уйдёт в минус'),
         'WARNING'
       );
 

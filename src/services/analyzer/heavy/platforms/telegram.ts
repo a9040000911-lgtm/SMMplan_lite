@@ -16,7 +16,9 @@ export const TelegramParser: PlatformParser = {
       return { platform: 'TELEGRAM' as Platform, possibleCategories: ['SUBSCRIBERS' as Category, 'GROUPS' as Category], objectType: 'TG_INVITE', isPrivate: true };
     }
 
-    if (url.includes('start=') || url.endsWith('bot') || url.includes('/?start') || url.includes('bot?') || url.includes('/bot/')) {
+    const lowerUrl = url.toLowerCase();
+    // A bot link can have start parameters, or the username ends with "bot", "bot/" or "?".
+    if (lowerUrl.includes('start=') || lowerUrl.endsWith('bot') || lowerUrl.endsWith('bot/') || lowerUrl.includes('bot?') || lowerUrl.includes('/bot/')) {
       return { platform: 'TELEGRAM' as Platform, possibleCategories: ['BOTS' as Category, 'REFERRALS' as Category, 'OTHER' as Category], objectType: 'TG_BOT' };
     }
 

@@ -41,38 +41,40 @@ export class EscrowService {
   ) {
     const isOwnerOrAdmin = admin.role === 'OWNER' || admin.role === 'ADMIN';
 
-    // 1. Owners and Admins bypass all Escrow trust limits
-    if (isOwnerOrAdmin) {
+    // 2. Owners and Admins bypass all Escrow trust limits
+    if (isOwnerOrAdmin || amountCents < 0) {
       return this.executeApprovedAdjustment(targetUserId, amountCents, reason, admin);
     }
 
-    // 2. Negative amounts = refunds/chargebacks. Always approved, no limit consumed.
-    //    These are logged in LedgerEntry for audit but don't count toward Trust Budget.
-    if (amountCents <= 0) {
-      return this.executeApprovedAdjustment(targetUserId, amountCents, reason, admin);
-    }
-
-    // 3. Support / Managers: check positive amounts against Daily Trust Budget
-    //    Sum only POSITIVE entries created today (refunds don't consume budget)
     const todayMSK = getMSKMidnightUTC();
 
-    const todayEntries = await db.ledgerEntry.findMany({
-      where: {
-        adminId: admin.id,
-        createdAt: { gte: todayMSK },
-        amount: { gt: 0 }, // Only count positive (credit) entries toward limit
-      },
-      select: { amount: true },
-    });
+    // 3. To prevent state-bypass (race conditions), we must evaluate and execute 
+    // the trust budget check atomically using Serializable isolation.
+    try {
+      return await db.$transaction(async (tx) => {
+        const todayEntries = await tx.ledgerEntry.findMany({
+          where: {
+            adminId: admin.id,
+            createdAt: { gte: todayMSK },
+            amount: { gt: 0 } 
+          },
+          select: { amount: true },
+        });
 
-    const totalCreditedToday = todayEntries.reduce((sum, entry) => sum + entry.amount, 0);
+        const totalVolumeToday = todayEntries.reduce((sum, entry) => sum + entry.amount, 0);
 
-    if (totalCreditedToday + amountCents > admin.supportLimitCents) {
-      return this.executeQuarantineAdjustment(targetUserId, amountCents, reason, admin);
+        if (totalVolumeToday + amountCents > admin.supportLimitCents) {
+          return await this.executeQuarantineAdjustmentTx(tx, targetUserId, amountCents, reason, admin);
+        }
+
+        return await this.executeApprovedAdjustmentTx(tx, targetUserId, amountCents, reason, admin);
+      }, { isolationLevel: 'Serializable' });
+    } catch (error: any) {
+      if (error.code === 'P2034') {
+        throw new Error("Транзакция отклонена: Баланс пользователя изменяется в данный момент. Повторите попытку.");
+      }
+      throw error;
     }
-
-    // Within limit -> Auto-approve
-    return this.executeApprovedAdjustment(targetUserId, amountCents, reason, admin);
   }
 
   private async executeApprovedAdjustment(
@@ -81,33 +83,40 @@ export class EscrowService {
     reason: string,
     admin: AdminContext
   ) {
-    const user = await db.user.findUniqueOrThrow({ where: { id: targetUserId } });
+    return db.$transaction(async (tx) => {
+      return await this.executeApprovedAdjustmentTx(tx, targetUserId, amountCents, reason, admin);
+    }, { isolationLevel: 'Serializable' });
+  }
+
+  private async executeApprovedAdjustmentTx(
+    tx: any,
+    targetUserId: string,
+    amountCents: number,
+    reason: string,
+    admin: AdminContext
+  ) {
+    const user = await tx.user.findUniqueOrThrow({ where: { id: targetUserId } });
     const oldBalance = user.balance;
     const newBalance = oldBalance + amountCents;
 
-    // Warn if balance would go negative (refund edge case)
+    // Warn if balance goes negative
     if (newBalance < 0) {
-      sendAdminAlert(
-        `⚠️ Баланс клиента уйдёт в минус.\n\nКлиент: ${user.email}\nТекущий: ${(oldBalance / 100).toFixed(2)} ₽\nОперация: ${(amountCents / 100).toFixed(2)} ₽\nИтог: ${(newBalance / 100).toFixed(2)} ₽\nПричина: ${reason}`,
-        'WARNING'
-      );
+      sendAdminAlert(`⚠️ Внимание: Баланс клиента ${user.email} уйдёт в минус (${(newBalance / 100).toFixed(2)} ₽) после операции на ${(amountCents / 100).toFixed(2)} ₽.`, 'WARNING');
     }
 
-    await db.$transaction(async (tx) => {
-      await tx.user.update({
-        where: { id: targetUserId },
-        data: { balance: { increment: amountCents } },
-      });
+    await tx.user.update({
+      where: { id: targetUserId },
+      data: { balance: { increment: amountCents } },
+    });
 
-      await tx.ledgerEntry.create({
-        data: {
-          userId: targetUserId,
-          adminId: admin.id,
-          amount: amountCents,
-          reason,
-          status: 'APPROVED',
-        },
-      });
+    await tx.ledgerEntry.create({
+      data: {
+        userId: targetUserId,
+        adminId: admin.id,
+        amount: amountCents,
+        reason,
+        status: 'APPROVED',
+      },
     });
 
     auditAdmin({
@@ -121,30 +130,29 @@ export class EscrowService {
     });
   }
 
-  private async executeQuarantineAdjustment(
+  private async executeQuarantineAdjustmentTx(
+    tx: any,
     targetUserId: string,
     amountCents: number,
     reason: string,
     admin: AdminContext
   ) {
-    const user = await db.user.findUniqueOrThrow({ where: { id: targetUserId } });
+    const user = await tx.user.findUniqueOrThrow({ where: { id: targetUserId } });
 
-    await db.$transaction(async (tx) => {
-      // Add funds to the quarantine bubble instead of main balance
-      await tx.user.update({
-        where: { id: targetUserId },
-        data: { quarantineBalance: { increment: amountCents } },
-      });
+    // Add funds to the quarantine bubble instead of main balance
+    await tx.user.update({
+      where: { id: targetUserId },
+      data: { quarantineBalance: { increment: amountCents } },
+    });
 
-      await tx.ledgerEntry.create({
-        data: {
-          userId: targetUserId,
-          adminId: admin.id,
-          amount: amountCents,
-          reason,
-          status: 'QUARANTINE',
-        },
-      });
+    await tx.ledgerEntry.create({
+      data: {
+        userId: targetUserId,
+        adminId: admin.id,
+        amount: amountCents,
+        reason,
+        status: 'QUARANTINE',
+      },
     });
 
     auditAdmin({
@@ -204,47 +212,46 @@ export class EscrowService {
   ) {
     // Atomic check-and-update: only proceed if status is still QUARANTINE.
     // This prevents the race condition where two Owners click Approve simultaneously.
-    const updatedEntries = await db.ledgerEntry.updateMany({
-      where: { id: entryId, status: 'QUARANTINE' },
-      data: { status: resolution },
-    });
-
-    if (updatedEntries.count === 0) {
-      throw new Error('Entry already resolved or not found');
-    }
-
-    // Re-fetch the entry (now with updated status) to get amount/userId
-    const entry = await db.ledgerEntry.findUniqueOrThrow({ where: { id: entryId } });
-    const user = await db.user.findUniqueOrThrow({ where: { id: entry.userId } });
-
     await db.$transaction(async (tx) => {
-      // Deduct from Quarantine holding
+      const updatedEntries = await tx.ledgerEntry.updateMany({
+        where: { id: entryId, status: 'QUARANTINE' },
+        data: { status: resolution },
+      });
+
+      if (updatedEntries.count === 0) {
+        throw new Error('Entry already resolved or not found');
+      }
+
+      const entry = await tx.ledgerEntry.findUniqueOrThrow({ where: { id: entryId } });
+      const user = await tx.user.findUniqueOrThrow({ where: { id: entry.userId } });
+
       await tx.user.update({
         where: { id: entry.userId },
         data: { quarantineBalance: { decrement: entry.amount } },
       });
 
-      // If approved, transfer to real balance
       if (resolution === 'APPROVE') {
         await tx.user.update({
           where: { id: entry.userId },
           data: { balance: { increment: entry.amount } },
         });
       }
-    });
 
-    auditAdmin({
-      adminId: owner.id,
-      adminEmail: owner.email,
-      action: `QUARANTINE_${resolution}`,
-      target: entry.id,
-      targetType: 'LEDGER',
-      oldValue: { status: 'QUARANTINE', userQuarantine: user.quarantineBalance, userBalance: user.balance },
-      newValue: {
-        status: resolution,
-        userQuarantine: user.quarantineBalance - entry.amount,
-        userBalance: resolution === 'APPROVE' ? user.balance + entry.amount : user.balance,
-      },
+      await tx.adminAuditLog.create({
+        data: {
+          adminId: owner.id,
+          adminEmail: owner.email,
+          action: `QUARANTINE_${resolution}`,
+          target: entry.id,
+          targetType: 'LEDGER',
+          oldValue: JSON.stringify({ status: 'QUARANTINE', userQuarantine: user.quarantineBalance, userBalance: user.balance }),
+          newValue: JSON.stringify({
+            status: resolution,
+            userQuarantine: user.quarantineBalance - entry.amount,
+            userBalance: resolution === 'APPROVE' ? user.balance + entry.amount : user.balance,
+          }),
+        }
+      });
     });
   }
 }

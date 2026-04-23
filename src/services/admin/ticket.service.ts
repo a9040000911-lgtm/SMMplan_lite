@@ -16,7 +16,7 @@ export type AdminTicketRow = {
 };
 
 type TicketSearchParams = {
-  cursor?: string;
+  page?: number;
   status?: string;
   source?: string;
   search?: string;
@@ -30,7 +30,7 @@ export class AdminTicketService {
   /**
    * Paginated ticket list with filters.
    */
-  async listTickets(params: TicketSearchParams): Promise<PaginatedResult<AdminTicketRow>> {
+  async listTickets(params: TicketSearchParams): Promise<{ items: AdminTicketRow[], totalPages: number, page: number, totalCount: number }> {
     const where: Record<string, unknown> = {};
 
     if (params.status && params.status !== 'ALL') {
@@ -47,17 +47,33 @@ export class AdminTicketService {
       ];
     }
 
-    return paginatedQuery<AdminTicketRow>(db.ticket, {
-      cursor: params.cursor,
-      pageSize: params.pageSize || 50,
-      where,
-      orderBy: { updatedAt: 'desc' },
-      include: {
-        user: { select: { id: true, email: true } },
-        _count: { select: { messages: true } },
-        messages: { orderBy: { createdAt: 'desc' }, take: 1 },
-      },
-    });
+    const pageSize = params.pageSize || 50;
+    const page = params.page || 1;
+    const skip = (page - 1) * pageSize;
+
+    const [totalCount, items] = await Promise.all([
+      db.ticket.count({ where }),
+      db.ticket.findMany({
+        where,
+        take: pageSize,
+        skip,
+        orderBy: { updatedAt: 'desc' },
+        include: {
+          user: { select: { id: true, email: true } },
+          _count: { select: { messages: true } },
+          messages: { orderBy: { createdAt: 'desc' }, take: 1 },
+        },
+      })
+    ]);
+
+    const totalPages = Math.ceil(totalCount / pageSize);
+
+    return {
+      items: items as unknown as AdminTicketRow[],
+      totalPages,
+      page,
+      totalCount
+    };
   }
 
   /**

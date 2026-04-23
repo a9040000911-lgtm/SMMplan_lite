@@ -121,8 +121,12 @@ async function handleAdd(user: any, formData: FormData) {
     return NextResponse.json({ error: 'Quantity out of bounds' }, { status: 400 });
   }
 
+  // B2B panels standard: for DripFeed, "quantity" parameter is quantity *per run*.
+  // Our DB schema requires order.quantity to be the *total* overall quantity.
+  const totalQuantity = (runs && runs > 0) ? quantity * runs : quantity;
+
   try {
-    const pricing = await marketingService.calculatePrice(user.id, service.id, quantity);
+    const pricing = await marketingService.calculatePrice(user.id, service.id, totalQuantity);
 
     const orderNumericId = await db.$transaction(async (tx) => {
       const updatedUser = await tx.user.update({
@@ -141,7 +145,7 @@ async function handleAdd(user: any, formData: FormData) {
         userId: user.id,
         serviceId: service.id,
         link,
-        quantity,
+        quantity: totalQuantity,
         status: 'PENDING',
         charge: pricing.totalCents,
         providerCost: pricing.providerCostCents,

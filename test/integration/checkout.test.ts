@@ -2,9 +2,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { type Service } from '@prisma/client';
 
 vi.mock('next/headers', () => ({
-  headers: () => new Map([['x-forwarded-for', '127.0.0.1']])
+  headers: () => new Map([['x-forwarded-for', '127.0.0.1']]),
+  cookies: () => ({ set: vi.fn(), get: vi.fn(), delete: vi.fn() })
 }));
 import { db } from '@/lib/db';
+import { redis } from '@/lib/redis';
 import { calculatePriceAction, checkoutAction } from '@/actions/order/checkout';
 
 describe('Server Actions: Checkout Integration', () => {
@@ -15,8 +17,14 @@ describe('Server Actions: Checkout Integration', () => {
     
     // Enable test mode in DB so it doesn't crash on Payment Gateways
     await db.systemSettings.create({
-      data: { isTestMode: true }
+      data: { id: 'global', isTestMode: true }
     });
+    // Wipe out rate limit from previous runs or other loops
+    await db.rateLimit.deleteMany();
+    // Also wipe out from Redis!
+    if (redis.status === 'ready') {
+      await redis.del('ratelimit:checkoutCore:127.0.0.1');
+    }
 
     const category = await db.category.create({
       data: { name: 'Action Testing' }
@@ -26,7 +34,7 @@ describe('Server Actions: Checkout Integration', () => {
       data: {
         name: 'Organic Followers',
         categoryId: category.id,
-        rate: 50, // 50 RUB 
+        rate: 50 / 95, // scale to 50 RUB 
         markup: 3, // total price 150 RUB per 1k = 15000 cents
         minQty: 100,
         maxQty: 5000,
@@ -52,6 +60,7 @@ describe('Server Actions: Checkout Integration', () => {
       gateway: 'yookassa'
     });
 
+    expect(res.error).toBeUndefined();
     expect(res.success).toBe(true);
     if (res.success) {
       expect(res.data.paymentUrl).toContain('/api/dev/mock-payment');
@@ -89,6 +98,7 @@ describe('Server Actions: Checkout Integration', () => {
       gateway: 'cryptobot'
     });
 
+    expect(res.error).toBeUndefined();
     expect(res.success).toBe(true);
     if (res.success) {
       expect(res.data.paymentUrl).toContain('/api/dev/mock-payment');

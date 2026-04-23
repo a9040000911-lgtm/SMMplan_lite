@@ -41,6 +41,14 @@ export async function GET(request: Request) {
          continue;
       }
 
+      // ATOMIC LOCK: Optimistic concurrency using nextRunAt
+      const tempLockDate = new Date(Date.now() + 5 * 60000); // 5 min lock
+      const lock = await db.order.updateMany({
+         where: { id: order.id, nextRunAt: order.nextRunAt },
+         data: { nextRunAt: tempLockDate }
+      });
+      if (lock.count === 0) continue; // Another worker is processing this chunk
+
       // Check overlap: If it's IN_PROGRESS and has an externalId, wait.
       // Smmplan_lite sync-status will clear it to COMPLETED if the previous chunk finished.
       // But actually, for simplicity in Lite, we will just blast the API, as the user wants local orchestration.
@@ -84,20 +92,100 @@ export async function GET(request: Request) {
         const newRetryCount = (order.retryCount || 0) + 1;
         const isFatal = newRetryCount >= 3;
 
-        await db.order.update({
-          where: { id: order.id },
-          data: { 
-             // Delay retry by 15 mins if not fatal
-            nextRunAt: isFatal ? null : new Date(Date.now() + 15 * 60000),
-            error: res.error || 'DripFeed chunk failed',
-            retryCount: newRetryCount,
-            status: isFatal ? 'ERROR' : 'IN_PROGRESS'
-          }
-        });
+        if (isFatal) {
+          const consumedCharge = Math.floor((order.charge * order.currentRun) / order.runs);
+          const refundAmount = order.charge - consumedCharge;
+          
+          await db.$transaction(async (tx) => {
+            await tx.order.update({
+              where: { id: order.id },
+              data: { 
+                nextRunAt: null,
+                error: res.error || 'DripFeed chunk failed (FATAL)',
+                retryCount: newRetryCount,
+                status: order.currentRun === 0 ? 'ERROR' : 'PARTIAL'
+              }
+            });
+            if (refundAmount > 0) {
+              await tx.user.update({
+                where: { id: order.userId },
+                data: { 
+                  balance: { increment: refundAmount },
+                  totalSpent: { decrement: refundAmount }
+                }
+              });
+
+              await tx.ledgerEntry.create({
+                data: {
+                  userId: order.userId,
+                  amount: refundAmount,
+                  reason: `Возврат средств по Drip-Feed заказу ${order.id} (ошибка) - Система`,
+                  status: 'APPROVED'
+                }
+              });
+            }
+          });
+        } else {
+          await db.order.update({
+            where: { id: order.id },
+            data: { 
+              nextRunAt: new Date(Date.now() + 15 * 60000),
+              error: res.error || 'DripFeed chunk failed',
+              retryCount: newRetryCount,
+              status: 'IN_PROGRESS'
+            }
+          });
+        }
         failed++;
       }
     } catch (e: any) {
       console.error(`Error in DripFeed chunk order ${order.id}:`, e);
+
+      const newRetryCount = (order.retryCount || 0) + 1;
+      const isFatal = newRetryCount >= 3;
+
+      if (isFatal) {
+        const consumedCharge = Math.floor((order.charge * order.currentRun) / order.runs);
+        const refundAmount = order.charge - consumedCharge;
+
+        await db.$transaction(async (tx) => {
+          await tx.order.update({
+            where: { id: order.id },
+            data: { 
+              nextRunAt: null,
+              error: e.message || 'Worker Exception (FATAL)',
+              retryCount: newRetryCount,
+              status: order.currentRun === 0 ? 'ERROR' : 'PARTIAL'
+            }
+          });
+          if (refundAmount > 0) {
+            await tx.user.update({
+              where: { id: order.userId },
+              data: { balance: { increment: refundAmount }, totalSpent: { decrement: refundAmount } }
+            });
+            await tx.ledgerEntry.create({
+              data: {
+                userId: order.userId,
+                adminId: 'system',
+                amount: refundAmount,
+                reason: `Возврат средств по Drip-Feed ${order.id} (crash) - Система`,
+                status: 'APPROVED'
+              }
+            });
+          }
+        });
+      } else {
+        await db.order.update({
+          where: { id: order.id },
+          data: { 
+            nextRunAt: new Date(Date.now() + 15 * 60000), // Retry in 15 min
+            error: e.message || 'Worker Exception',
+            retryCount: newRetryCount,
+            status: 'IN_PROGRESS'
+          }
+        });
+      }
+
       failed++;
     }
   }

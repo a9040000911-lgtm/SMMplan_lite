@@ -7,14 +7,14 @@ import {
   CardContent,
   Button as HeroButton
 } from "@heroui/react";
+import { AdminPageHeader } from '@/components/admin/page-header';
 import { CatalogTable } from './client-table';
 import { db } from '@/lib/db';
-import { TOTAL_MANDATORY_DEDUCTIONS, SAFETY_FLOOR_MARKUP, applyBeautifulRounding } from '@/lib/financial-constants';
+import { TOTAL_MANDATORY_DEDUCTIONS, SAFETY_FLOOR_MARKUP, applyBeautifulRounding, USD_TO_RUB } from '@/lib/financial-constants';
 
 export const dynamic = 'force-dynamic';
 
-// Exchange rate: In Smmplan Lite we don't have GlobalSetting yet, so we use a constant.
-export const USD_TO_RUB = 95;
+// Exchange rate: Imported from financial constants
 
 function calcSellingPrice(ratePerK: number, markup: number, usdToRub: number): number {
   return ratePerK * markup * usdToRub;
@@ -45,30 +45,26 @@ export default async function AdminCatalogPage({ searchParams }: Props) {
   const markupAnalytics = await adminCatalogService.getMarkupAnalytics();
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 flex items-center gap-3">
-            <ShoppingCart className="w-8 h-8 text-sky-500" /> Каталог услуг
-          </h1>
-          <p className="text-slate-500 mt-2 text-sm font-medium">
-            Всего: {stats.totalServices} • Активных: {stats.activeServices} • Категорий: {stats.categories}
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <Link href="/admin/providers">
-            <HeroButton variant="secondary" className="font-medium">
-              Настройка панелей
-            </HeroButton>
-          </Link>
-          <Link href="/admin/catalog/categories">
-            <HeroButton variant="primary" className="font-medium shadow-sm">
-              Категории
-            </HeroButton>
-          </Link>
-        </div>
-      </div>
+    <div className="space-y-6 w-full animate-in fade-in duration-500 ease-out sm:px-2 md:px-0 bg-slate-50/50 min-h-full pb-10">
+      <AdminPageHeader
+        icon={ShoppingCart}
+        title="Каталог услуг"
+        description={`Всего: ${stats.totalServices} • Активных: ${stats.activeServices} • Категорий: ${stats.categories}`}
+        action={(
+          <div className="flex gap-3">
+            <Link href="/admin/providers">
+              <HeroButton variant="secondary" className="font-medium bg-white">
+                Настройка панелей
+              </HeroButton>
+            </Link>
+            <Link href="/admin/catalog/categories">
+              <HeroButton variant="primary" className="font-medium shadow-sm">
+                Категории
+              </HeroButton>
+            </Link>
+          </div>
+        )}
+      />
 
       {/* Markup Analytics Compact Strip using HeroUI Card */}
       <HeroCard className="shadow-sm border border-default-200">

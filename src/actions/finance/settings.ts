@@ -16,7 +16,7 @@ export async function updateSystemSettings(formData: FormData) {
   if (!session) throw new Error('Unauthorized');
 
   const user = await db.user.findUnique({ where: { id: session.userId } });
-  if (user?.role !== 'ADMIN') throw new Error('Forbidden');
+  if (user?.role !== 'ADMIN' && user?.role !== 'OWNER') throw new Error('Forbidden');
 
   const parsed = financeSettingsSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) throw new Error('Validation error');

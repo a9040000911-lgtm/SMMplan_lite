@@ -7,8 +7,6 @@ import { verifySession } from '@/lib/session';
 
 export async function analyzeUrl(url: string) {
   try {
-    const session = await verifySession();
-    if (!session) return { success: false, error: "Unauthorized" };
     const isAllowed = await RateLimitService.check("analyzeUrl", 30, 60); // 30 requests per minute
     if (!isAllowed) {
        return { success: false, error: "Too many URL analysis requests." };

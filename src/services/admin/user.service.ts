@@ -126,10 +126,14 @@ export class AdminUserService {
     const oldBalance = user.balance;
 
     await db.$transaction(async (tx) => {
-      await tx.user.update({
+      const updatedUser = await tx.user.update({
         where: { id: userId },
         data: { balance: { increment: amountCents } },
       });
+
+      if (updatedUser.balance < 0) {
+        throw new Error(`Операция отклонена: Баланс пользователя уйдёт в минус на ${updatedUser.balance} коп.`);
+      }
 
       await tx.ledgerEntry.create({
         data: {
