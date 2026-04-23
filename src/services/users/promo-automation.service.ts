@@ -27,21 +27,25 @@ export class PromoAutomationService {
           const uniqueHash = crypto.createHash('md5').update(userId).digest('hex').substring(0, 6).toUpperCase();
           const deterministicCode = `VIP${rule.percent}-${uniqueHash}`;
 
-          const existing = await db.promoCode.findUnique({
-            where: { code: deterministicCode }
+          // Idempotency check: Upsert to gracefully handle race conditions without throwing unique constraint error
+          await db.promoCode.upsert({
+            where: { code: deterministicCode },
+            update: {}, // Do nothing if it exists
+            create: {
+              code: deterministicCode,
+              discountPercent: rule.percent,
+              maxUses: 1, // One-time use reward
+              isActive: true
+            }
           });
 
-          if (!existing) {
-            // Issue the Promo
-            await db.promoCode.create({
-              data: {
-                code: deterministicCode,
-                discountPercent: rule.percent,
-                maxUses: 1, // One-time use reward
-                isActive: true
-              }
-            });
+          // Idempotency: ensure audit log is only inserted once using unique constraint workaround implicitly or just checking. 
+          // Better: use findFirst to see if we already logged it today or ever.
+          const existingLog = await db.auditLog.findFirst({
+            where: { userId, action: 'PROMO_ISSUED', details: { contains: deterministicCode } }
+          });
 
+          if (!existingLog) {
             // Log it so admin or UI can see it was issued automatically
             await db.auditLog.create({
               data: {

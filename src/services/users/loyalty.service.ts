@@ -28,13 +28,24 @@ export class LoyaltyService {
    * Awards a commission to the referrer when a referred user makes a deposit.
    * Safe to run inside an existing PostgreSQL transaction.
    */
-  static async awardCommission(tx: any, referredUserId: string, depositAmountCents: number): Promise<void> {
+  static async awardCommission(tx: any, referredUserId: string, depositAmountCents: number, orderId: string): Promise<void> {
     const user = await tx.user.findUnique({
       where: { id: referredUserId },
       select: { referredById: true }
     });
 
     if (!user || !user.referredById) return;
+
+    // Cycle protection: Check if the referrer was referred by the current user (Cyclic loop attack)
+    const referrer = await tx.user.findUnique({
+      where: { id: user.referredById },
+      select: { referredById: true }
+    });
+
+    if (referrer && referrer.referredById === referredUserId) {
+        console.warn(`[SECURITY] Cyclic referral detected between ${referredUserId} and ${user.referredById}. Commission rejected.`);
+        return;
+    }
 
     const percent = await this.getReferralPercent(user.referredById);
     
@@ -44,8 +55,8 @@ export class LoyaltyService {
     // Create pending commission record
     await tx.commission.create({
       data: {
+        orderId,
         referrerId: user.referredById,
-        referredId: referredUserId, // Assuming schema allows this
         amount: commissionCents,
         status: 'PENDING'
       }
