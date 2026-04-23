@@ -28,7 +28,9 @@ export async function createPromoCode(formData: FormData) {
   const { session } = await requireAdmin();
   
   const parsed = promoCodeSchema.safeParse(Object.fromEntries(formData.entries()));
-  if (!parsed.success) return;
+  if (!parsed.success) {
+    throw new Error('Некорректные данные промокода: ' + parsed.error.errors.map(e => e.message).join(', '));
+  }
   const { code, type, discountPercent, amount, maxUses, expiresAt } = parsed.data;
 
   await adminMarketingService.createPromoCode({

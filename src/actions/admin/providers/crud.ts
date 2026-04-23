@@ -5,8 +5,22 @@ import { requireAdmin } from "@/lib/server/rbac";
 import { CryptoService } from "@/lib/crypto";
 import { auditAdmin } from "@/lib/admin-audit";
 import { providerService } from "@/services/providers/provider.service";
+import { z } from "zod";
 
-export async function createProvider(data: {
+const providerSchema = z.object({
+  name: z.string().min(1).max(255),
+  apiUrl: z.string().url("Must be a valid URL"),
+  apiKey: z.string(),
+  isActive: z.boolean().default(false),
+  balanceCurrency: z.string().length(3, "Use 3-letter ISO code like USD").toUpperCase(),
+  httpMethod: z.enum(["GET", "POST"]),
+  requestType: z.enum(["JSON", "FORM", "QUERY"]),
+  headers: z.record(z.string()).default({})
+});
+
+const idSchema = z.string().min(1);
+
+export async function createProvider(rawData: {
   name: string;
   apiUrl: string;
   apiKey: string;
@@ -17,6 +31,8 @@ export async function createProvider(data: {
   headers: Record<string, string>;
 }) {
   return requireAdmin(async (admin) => {
+    const data = providerSchema.parse(rawData);
+
     // Encrypt the API key before saving!
     const encryptedKey = CryptoService.encrypt(data.apiKey);
     
@@ -51,7 +67,7 @@ export async function createProvider(data: {
   });
 }
 
-export async function updateProvider(id: string, data: {
+export async function updateProvider(rawId: string, rawData: {
   name: string;
   apiUrl: string;
   apiKey?: string; // If empty, we don't update
@@ -62,6 +78,13 @@ export async function updateProvider(id: string, data: {
   headers: Record<string, string>;
 }) {
   return requireAdmin(async (admin) => {
+    const id = idSchema.parse(rawId);
+    
+    // Create an update schema dynamically to allow empty apikey
+    const updateSchema = providerSchema.extend({
+      apiKey: z.string().optional()
+    });
+    const data = updateSchema.parse(rawData);
     
     const updateData: any = {
       name: data.name,
@@ -97,8 +120,9 @@ export async function updateProvider(id: string, data: {
   });
 }
 
-export async function deleteProvider(id: string) {
+export async function deleteProvider(rawId: string) {
     return requireAdmin(async (admin) => {
+      const id = idSchema.parse(rawId);
       // Check if it has related services
       const count = await db.service.count({ where: { providerId: id } });
       if (count > 0) {
@@ -119,9 +143,10 @@ export async function deleteProvider(id: string) {
     });
 }
 
-export async function checkProviderConnection(id: string) {
+export async function checkProviderConnection(rawId: string) {
     return requireAdmin(async () => {
         try {
+            const id = idSchema.parse(rawId);
             const providerRecord = await db.provider.findUnique({ where: { id } });
             if (!providerRecord) throw new Error("Provider not found");
             

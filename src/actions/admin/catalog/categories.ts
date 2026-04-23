@@ -3,9 +3,19 @@
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/server/rbac";
 import { auditAdmin } from "@/lib/admin-audit";
+import { z } from "zod";
 
-export async function createCategory(data: { name: string; networkId: string; sort: number }) {
+const categorySchema = z.object({
+  name: z.string().min(1).max(255, "Category name too long"),
+  networkId: z.string().min(1, "Network ID required"),
+  sort: z.coerce.number().int().default(0)
+});
+
+const idSchema = z.string().min(1);
+
+export async function createCategory(rawData: { name: string; networkId: string; sort: number }) {
   return requireAdmin(async (admin) => {
+    const data = categorySchema.parse(rawData);
     const cat = await db.category.create({
       data: {
         name: data.name,
@@ -27,8 +37,10 @@ export async function createCategory(data: { name: string; networkId: string; so
   });
 }
 
-export async function updateCategory(id: string, data: { name: string; networkId: string; sort: number }) {
+export async function updateCategory(rawId: string, rawData: { name: string; networkId: string; sort: number }) {
   return requireAdmin(async (admin) => {
+    const id = idSchema.parse(rawId);
+    const data = categorySchema.parse(rawData);
     const cat = await db.category.update({
       where: { id },
       data: {
@@ -51,8 +63,9 @@ export async function updateCategory(id: string, data: { name: string; networkId
   });
 }
 
-export async function deleteCategory(id: string) {
+export async function deleteCategory(rawId: string) {
   return requireAdmin(async (admin) => {
+    const id = idSchema.parse(rawId);
     const count = await db.service.count({ where: { categoryId: id } });
     if (count > 0) {
       return { success: false, error: `Cannot delete category. It contains ${count} services. Delete or move them first.` };

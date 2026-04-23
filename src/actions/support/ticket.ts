@@ -32,7 +32,7 @@ export async function createTicket(formData: FormData) {
   if (!session) throw new Error('Unauthorized');
 
   const parsed = createTicketSchema.safeParse(Object.fromEntries(formData.entries()));
-  if (!parsed.success) return;
+  if (!parsed.success) throw new Error('Данные тикета заполнены неверно');
   const { subject, message } = parsed.data;
 
   const ticket = await ticketService.getOrCreateTicket(session.userId, subject);
@@ -47,7 +47,7 @@ export async function addTicketMessage(formData: FormData) {
   if (!session) throw new Error('Unauthorized');
 
   const parsed = ticketMessageSchema.safeParse(Object.fromEntries(formData.entries()));
-  if (!parsed.success) return;
+  if (!parsed.success) throw new Error('Сообщение не может быть пустым');
   const { ticketId, message, mediaUrl, mediaType } = parsed.data;
 
   const ticket = await db.ticket.findUnique({ where: { id: ticketId } });
@@ -65,7 +65,7 @@ export async function adminReplyTicket(formData: FormData) {
   if (!user || !['ADMIN', 'SUPPORT', 'OWNER'].includes(user.role)) throw new Error('Forbidden');
 
   const parsed = adminReplySchema.safeParse(Object.fromEntries(formData.entries()));
-  if (!parsed.success) return;
+  if (!parsed.success) throw new Error('Ошибка валидации сообщения');
   const { ticketId, message, isInternal, mediaUrl, mediaType } = parsed.data;
 
   const sender = isInternal ? 'INTERNAL' : 'STAFF';
@@ -88,7 +88,7 @@ export async function changeTicketStatus(formData: FormData) {
   if (!user || !['ADMIN', 'SUPPORT', 'OWNER'].includes(user.role)) throw new Error('Forbidden');
 
   const parsed = changeStatusSchema.safeParse(Object.fromEntries(formData.entries()));
-  if (!parsed.success) return;
+  if (!parsed.success) throw new Error('Неверный статус');
   const { ticketId, status } = parsed.data;
 
   await db.ticket.update({
@@ -113,7 +113,7 @@ export async function editTicketMessage(formData: FormData) {
   if (!user || !['ADMIN', 'SUPPORT', 'OWNER'].includes(user.role)) throw new Error('Forbidden');
 
   const parsed = editMessageSchema.safeParse(Object.fromEntries(formData.entries()));
-  if (!parsed.success) return;
+  if (!parsed.success) throw new Error('Ошибка редактирования сообщения');
   const { messageId, newText } = parsed.data;
 
   // Retrieve the old message
