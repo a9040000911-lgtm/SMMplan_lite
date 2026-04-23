@@ -5,10 +5,7 @@ import { db } from '@/lib/db';
 import { adminOrderService } from '@/services/admin/order.service';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-
-const orderIdSchema = z.object({
-  orderId: z.string().min(1),
-});
+import { orderIdSchema } from '@/validators/admin.validators';
 
 const STAFF_ROLES = ['OWNER', 'ADMIN', 'MANAGER', 'SUPPORT'];
 

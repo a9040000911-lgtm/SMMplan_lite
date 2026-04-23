@@ -6,21 +6,7 @@ import { settingsService } from '@/services/admin/settings.service';
 import { revalidatePath } from 'next/cache';
 import { EncryptionService } from '@/lib/encryption';
 import { z } from 'zod';
-
-const roleSchema = z.object({
-  userId: z.string().min(1),
-  role: z.string().min(1),
-});
-
-const globalSettingsSchema = z.object({
-  maintenanceMode: z.any().transform((val) => val === 'true' || val === 'on'),
-  siteName: z.any().transform((v) => (typeof v === 'string' && v.trim() ? v : 'Smmplan')),
-  siteDescription: z.any().transform((v) => (typeof v === 'string' ? v : '')),
-  welcomeMessage: z.any().transform((v) => (typeof v === 'string' && v ? v : null)),
-  yookassaShopId: z.any().transform((v) => (typeof v === 'string' && v ? v : null)),
-  yookassaSecretKey: z.any().transform((v) => (typeof v === 'string' && v ? v : null)),
-  cryptoBotToken: z.any().transform((v) => (typeof v === 'string' && v ? v : null)),
-});
+import { roleSchema, globalSettingsSchema } from '@/validators/admin.validators';
 
 async function requireAdmin() {
   const session = await verifySession();

@@ -3,6 +3,7 @@
 import { ProgressBar, Button as HeroButton } from "@heroui/react";
 import { updateMarkupAction, toggleServiceAction } from '@/actions/admin/catalog';
 import { TOTAL_MANDATORY_DEDUCTIONS, SAFETY_FLOOR_MARKUP, applyBeautifulRounding, USD_TO_RUB } from '@/lib/financial-constants';
+import { ActionForm } from '@/components/admin/action-form';
 
 const SAFETY_MULTIPLIER = (1 + SAFETY_FLOOR_MARKUP) / (1 - TOTAL_MANDATORY_DEDUCTIONS);
 
@@ -67,7 +68,7 @@ export function CatalogTable({ services }: { services: any[] }) {
                   </td>
                   <td className="py-3 px-4">
                     <div className="flex items-start gap-4 whitespace-nowrap">
-                      <form action={updateMarkupAction}>
+                      <ActionForm action={updateMarkupAction}>
                         <input type="hidden" name="serviceId" value={s.id} />
                         <div className="relative flex items-center">
                           <input
@@ -84,7 +85,7 @@ export function CatalogTable({ services }: { services: any[] }) {
                             `}
                           />
                         </div>
-                      </form>
+                      </ActionForm>
                       <div className="flex flex-col gap-1.5 w-24 pt-1">
                         <ProgressBar
                           value={progressValue}

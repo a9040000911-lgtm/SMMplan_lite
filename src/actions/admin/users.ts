@@ -9,20 +9,7 @@ import { revalidatePath } from 'next/cache';
 import { cookies, headers } from 'next/headers';
 import { SignJWT } from 'jose';
 import { z } from 'zod';
-
-const updateBalanceSchema = z.object({
-  userId: z.string().min(1),
-  amount: z.coerce.number().int(),
-  reason: z.string().min(1)
-});
-
-const userIdSchema = z.object({
-  userId: z.string().min(1)
-});
-
-const entryIdSchema = z.object({
-  entryId: z.string().min(1)
-});
+import { updateBalanceSchema, userIdSchema, entryIdSchema } from '@/validators/admin.validators';
 
 const STAFF_ROLES = ['OWNER', 'ADMIN', 'MANAGER', 'SUPPORT'];
 const secretKey = process.env.JWT_SECRET || 'fallback-secret-for-dev-only-v2';

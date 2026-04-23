@@ -8,6 +8,7 @@ import { AdminPageHeader } from '@/components/admin/page-header';
 import { ClientTable } from './components/client-table';
 import { Users, Download, Search, Key, Ban, UserCheck, CreditCard, ShoppingBag } from 'lucide-react';
 import { SubmitButton } from '@/components/admin/submit-button';
+import { ActionForm } from '@/components/admin/action-form';
 
 export const dynamic = 'force-dynamic';
 
@@ -127,19 +128,19 @@ export default async function AdminClientsPage({ searchParams }: Props) {
                         </SubmitButton>
                       </form>
                       {userCard.role === 'BANNED' ? (
-                        <form action={unbanUserAction}>
+                        <ActionForm action={unbanUserAction}>
                           <input type="hidden" name="userId" value={userCard.id} />
                           <SubmitButton variant="outline" className="text-xs h-9 text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50" confirmMessage="Снять блокировку с этого пользователя?">
                             Разбанить
                           </SubmitButton>
-                        </form>
+                        </ActionForm>
                       ) : (
-                        <form action={banUserAction}>
+                        <ActionForm action={banUserAction}>
                           <input type="hidden" name="userId" value={userCard.id} />
                           <SubmitButton variant="outline" className="text-xs h-9 text-rose-600 hover:text-rose-700 hover:bg-rose-50" confirmMessage="Вы уверены, что хотите забанить данного клиента? Действие можно отменить позже.">
                             Бан
                           </SubmitButton>
-                        </form>
+                        </ActionForm>
                       )}
                     </div>
                   </CardContent>

@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     }
 
     // Fetch all mapped internal services
-    const internalServices = await db.service.findMany({
+    const services = await db.service.findMany({
       where: { externalId: { not: null } }
     });
 
@@ -45,7 +45,7 @@ export async function GET(request: Request) {
     const anomalies: string[] = [];
 
     // 1. Group operations
-    for (const localService of internalServices) {
+    for (const localService of services) {
       if (!localService.externalId) continue;
 
       const externalMeta = externalMap.get(localService.externalId);
@@ -163,7 +163,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       message: 'Catalog Sync Successful',
       details: {
-        totalInternalChecked: internalServices.length,
+        totalChecked: services.length,
         updatedRatesOrActivation: updatedCnt,
         disabledMissingServices: disabledCnt,
         jitteredSmallChanges: jitteredCnt,

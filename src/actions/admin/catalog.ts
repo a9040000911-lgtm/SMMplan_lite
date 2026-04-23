@@ -5,22 +5,7 @@ import { db } from '@/lib/db';
 import { adminCatalogService } from '@/services/admin/catalog.service';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-
-const updateMarkupSchema = z.object({
-  serviceId: z.string().min(1),
-  markup: z.coerce.number()
-});
-
-const toggleServiceSchema = z.object({
-  serviceId: z.string().min(1),
-  isActive: z.any().transform(val => val === 'true' || val === 'on')
-});
-
-/* importServicesSchema removed */const bulkUpdateMarkupSchema = z.object({
-  categoryId: z.string().nullable().optional(),
-  platform: z.string().nullable().optional(),
-  markup: z.coerce.number().min(0).max(151.0)
-});
+import { updateMarkupSchema, toggleServiceSchema, bulkUpdateMarkupSchema } from '@/validators/admin.validators';
 
 async function requireManager() {
   const session = await verifySession();

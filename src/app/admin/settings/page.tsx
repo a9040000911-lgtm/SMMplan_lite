@@ -9,6 +9,7 @@ import { db } from '@/lib/db';
 import Link from 'next/link';
 import { Settings } from 'lucide-react';
 import { AdminPageHeader } from '@/components/admin/page-header';
+import { ActionForm } from '@/components/admin/action-form';
 
 export const dynamic = 'force-dynamic';
 
@@ -69,7 +70,7 @@ export default async function AdminSettingsPage({
               <CardDescription>Метаданные сайта и операционные переключатели.</CardDescription>
             </CardHeader>
             <CardContent>
-              <form action={updateGlobalSettings} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <ActionForm action={updateGlobalSettings} className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="siteName">Название сайта</Label>
                   <Input id="siteName" name="siteName" defaultValue={settings.siteName} />
@@ -94,7 +95,7 @@ export default async function AdminSettingsPage({
                 <div className="col-span-full pt-4 border-t border-slate-100">
                   <Button type="submit">Сохранить настройки</Button>
                 </div>
-              </form>
+              </ActionForm>
             </CardContent>
           </Card>
         </div>
@@ -110,7 +111,7 @@ export default async function AdminSettingsPage({
               <CardDescription>Настройка текстов для омниканального бота.</CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
-              <form action={updateGlobalSettings} className="space-y-4">
+              <ActionForm action={updateGlobalSettings} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="welcomeMessage">Приветственное сообщение (/start)</Label>
                   <textarea
@@ -123,7 +124,7 @@ export default async function AdminSettingsPage({
                 <Button type="submit" variant="secondary" className="bg-sky-100 text-sky-800 hover:bg-sky-200">
                   Сохранить контент бота
                 </Button>
-              </form>
+              </ActionForm>
             </CardContent>
           </Card>
 
@@ -134,7 +135,7 @@ export default async function AdminSettingsPage({
               <CardDescription>Ключи шифруются AES-256-GCM в хранилище.</CardDescription>
             </CardHeader>
             <CardContent>
-              <form action={updateGlobalSettings} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <ActionForm action={updateGlobalSettings} className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="col-span-full font-semibold text-slate-800 bg-slate-50 px-3 py-2 rounded text-sm">
                   YooKassa (Fiat)
                 </div>
@@ -165,7 +166,7 @@ export default async function AdminSettingsPage({
                 <div className="col-span-full pt-4 border-t border-slate-100">
                   <Button type="submit">Сохранить шлюзы</Button>
                 </div>
-              </form>
+              </ActionForm>
             </CardContent>
           </Card>
 
