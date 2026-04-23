@@ -6,7 +6,7 @@
 import { Scenes, Markup } from 'telegraf';
 import { LinkService } from '@/services/providers';
 import { prisma } from '@/lib/prisma';
-import { UnifiedPaymentService } from '@/services/payments/unified-payment.service';
+import { UnifiedPaymentService } from '@/services/financial/unified-payment.service';
 import { formatAmount } from '@/utils/formatter';
 import { PricingService } from '@/services/finance';
 import { SessionService } from '@/services/core';

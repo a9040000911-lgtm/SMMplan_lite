@@ -6,7 +6,7 @@
 import { Markup } from 'telegraf';
 import { prisma } from '@/lib/prisma';
 import { SessionService } from '@/services/core';
-import { MassOrderService } from '@/services/orders';
+import { MassOrderService } from '@/services/core/mass-order.service';
 import { formatAmount } from '@/utils/formatter';
 import axios from 'axios';
 import { escapeHtml } from '../utils/formatter';

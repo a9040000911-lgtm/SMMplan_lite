@@ -10,7 +10,11 @@
     "postinstall": "prisma generate",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:db": "dotenv -e .env.test -- prisma db push --accept-data-loss"
+    "test:db": "dotenv -e .env.test -- prisma db push --accept-data-loss",
+    "test:e2e": "playwright test",
+    "test:e2e:update": "playwright test --update-snapshots",
+    "bot": "tsx src/bot/index.ts",
+    "bot:dev": "dotenv -e .env -- tsx watch src/bot/index.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -44,13 +48,16 @@
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-medium-image-zoom": "^5.4.3",
+    "recharts": "^3.8.1",
     "sanitize-html": "^2.17.3",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
+    "telegraf": "^4.16.3",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4.2.2",
     "@types/node": "^20",
     "@types/nodemailer": "^6.4.15",

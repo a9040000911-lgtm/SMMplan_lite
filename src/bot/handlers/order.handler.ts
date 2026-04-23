@@ -7,7 +7,7 @@ import { Markup } from 'telegraf';
 import { prisma } from '@/lib/prisma';
 import { SessionService } from '@/services/core';
 import { PricingService } from '@/services/finance';
-import { UnifiedPaymentService } from '@/services/payments/unified-payment.service';
+import { UnifiedPaymentService } from '@/services/financial/unified-payment.service';
 import { formatAmount } from '@/utils/formatter';
 import { getProjectMenu } from '../utils/menu.utils';
 import { RateLimiterService } from '../utils/rate-limiter';

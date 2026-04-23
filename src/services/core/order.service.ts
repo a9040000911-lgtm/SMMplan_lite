@@ -41,6 +41,56 @@ export class OrderService {
       }
     });
   }
+
+  /**
+   * Fast secure path for Telegram Bot Orders.
+   * Atomically deducts balance and creates an order, protected against TOCTOU.
+   */
+  async createBotOrder(userId: string, input: Omit<CreateOrderInput, 'userId' | 'status'>): Promise<{ success: boolean; error?: string; orderId?: string }> {
+    try {
+      // @ts-ignore - db import since this is a service
+      const { db } = await import('@/lib/db');
+
+      return await db.$transaction(async (tx: Prisma.TransactionClient) => {
+        // 1. Unconditionally decrement balance
+        const user = await tx.user.update({
+          where: { id: userId },
+          data: { 
+            balance: { decrement: input.charge },
+            totalSpent: { increment: input.charge }
+          }
+        });
+
+        // 2. Strong guard against TOCTOU (or caught by PostgreSQL Constraint)
+        if (user.balance < 0) {
+          throw new Error('Not enough funds. Transaction aborted.');
+        }
+
+        // 3. Create Order
+        const newOrder = await this.createOrderTransaction(tx, {
+          ...input,
+          userId,
+          status: 'PENDING'
+        });
+
+        // 4. Ledger Entry
+        await tx.ledgerEntry.create({
+          data: {
+            userId,
+            amount: -input.charge,
+            reason: `Списание средств за заказ #${newOrder.id} через Telegram Bot`,
+            status: 'APPROVED'
+          }
+        });
+
+        return { success: true, orderId: newOrder.id };
+      }, { isolationLevel: 'Serializable' });
+
+    } catch (e: any) {
+      console.error('[BotOrder] Safe transaction failed:', e.message);
+      return { success: false, error: 'Недостаточно средств или техническая ошибка' };
+    }
+  }
 }
 
 export const orderService = new OrderService();

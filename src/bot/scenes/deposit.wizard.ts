@@ -6,7 +6,7 @@
 import { Scenes, Markup } from 'telegraf';
 import { prisma } from '@/lib/prisma';
 import { formatAmount } from '@/utils/formatter';
-import { UnifiedPaymentService } from '@/services/payments/unified-payment.service';
+import { UnifiedPaymentService } from '@/services/financial/unified-payment.service';
 import { RateLimiterService } from '../utils/rate-limiter';
 
 export const DEPOSIT_WIZARD = 'deposit-wizard';

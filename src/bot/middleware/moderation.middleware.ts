@@ -5,6 +5,7 @@
  */
 import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
+import { RateLimiterService } from '@/bot/utils/rate-limiter';
 
 
 export const moderationMiddleware = async (ctx: any, next: any) => {
@@ -19,6 +20,13 @@ export const moderationMiddleware = async (ctx: any, next: any) => {
 
     if (!userId || !projectId) return next();
 
+    // 1. HARD GLOBAL RATE-LIMIT (PRISMA POOL PROTECTION)
+    const isAllowed = await RateLimiterService.checkGlobalLimit(userId, projectId);
+    if (!isAllowed) {
+        // Drop silently or give a minimal local warning to prevent outbound spam
+        console.warn(`[RateLimit] Dropping request from ${userId} (exceeded 30 req/min)`);
+        return; // Break pipeline
+    }
 
     try {
         const cacheKey = `bot_mod:${projectId}:${userId}`;

@@ -14,7 +14,7 @@ RUN npm ci
 # Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app
-RUN apk add --no-cache openssl
+RUN apk add --no-cache openssl tini
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
@@ -32,13 +32,15 @@ WORKDIR /app
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 
-RUN apk add --no-cache openssl
+RUN apk add --no-cache openssl tini
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
 # Copy prisma client & schema for run-time operations (e.g. migrate deploy script)
 COPY --from=builder /app/prisma ./prisma
+# Copy src code for bot/workers not included in Next.js standalone
+COPY --from=builder /app/src ./src
 # Next.js standalone output doesn't include node_modules completely safely if they rely on binaries. 
 # But it does bundle prisma via webpack. However, for migrate deploy we need the cli.
 COPY --from=builder /app/node_modules ./node_modules
@@ -67,5 +69,5 @@ ENV PORT 3000
 # set hostname to localhost
 ENV HOSTNAME "0.0.0.0"
 
-ENTRYPOINT ["./docker-entrypoint.sh"]
+ENTRYPOINT ["/sbin/tini", "--", "./docker-entrypoint.sh"]
 CMD ["node", "server.js"]

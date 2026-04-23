@@ -305,6 +305,13 @@ async function handleShutdown(signal: string) {
       await instance.stop(signal);
     }
     
+        // 4. ОБЯЗАТЕЛЬНО закрываем пул коннектов к БД
+    try {
+      await prisma.$disconnect();
+      logger.info('Prisma connection pool closed.');
+    } catch (e) {
+      logger.error('Error disconnecting Prisma:', e);
+    }
     logger.info('--- ВСЕ ПРОЦЕССЫ УСПЕШНО ОСТАНОВЛЕНЫ. ВЫХОД. ---');
     process.exit(0);
   } catch (err) {

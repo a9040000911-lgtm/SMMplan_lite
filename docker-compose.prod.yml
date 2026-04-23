@@ -29,12 +29,15 @@ services:
       retries: 5
 
   app:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: smmplan_lite_prod_app:latest
     container_name: smmplan_lite_prod_app
     restart: always
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-smmplan_lite}?schema=public
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-smmplan_lite}?schema=public&connection_limit=5&pool_timeout=30
       - REDIS_URL=redis://redis:6379 
       - APP_ENCRYPTION_KEY=${APP_ENCRYPTION_KEY}
       - ADMIN_ALERT_BOT_TOKEN=${ADMIN_ALERT_BOT_TOKEN}
@@ -64,6 +67,30 @@ services:
       - ./nginx/certbot/www:/var/www/certbot
     depends_on:
       - app
+
+  bot:
+    image: smmplan_lite_prod_app:latest
+    container_name: smmplan_lite_prod_bot
+    restart: unless-stopped
+    command: ["npx", "tsx", "src/bot/index.ts"]
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-smmplan_lite}?schema=public&connection_limit=5&pool_timeout=30
+      - REDIS_URL=redis://redis:6379 
+      - APP_ENCRYPTION_KEY=${APP_ENCRYPTION_KEY}
+      - ADMIN_ALERT_BOT_TOKEN=${ADMIN_ALERT_BOT_TOKEN}
+      - ADMIN_ALERT_CHAT_ID=${ADMIN_ALERT_CHAT_ID}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - BASE_URL=${BASE_URL}
+      - YOO_SHOP_ID=${YOO_SHOP_ID}
+      - YOO_SECRET_KEY=${YOO_SECRET_KEY}
+      - CRYPTOBOT_TOKEN=${CRYPTOBOT_TOKEN}
+      - CRON_SECRET=${CRON_SECRET}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   certbot:
     image: certbot/certbot

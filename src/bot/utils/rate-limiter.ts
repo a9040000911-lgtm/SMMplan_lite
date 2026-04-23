@@ -62,4 +62,20 @@ export class RateLimiterService {
         }
         return { allowed: true, attempts };
     }
+
+    /**
+     * Anti-Spam: Protects Prisma connection pool and Bot polling from massive spam.
+     * Hard limit: 30 requests per minute per Telegram ID.
+     */
+    static async checkGlobalLimit(userId: string | number, projectId: string): Promise<boolean> {
+        // We do not bypass admin here to prevent accidental bot loops from admins exhausting the pool
+        const key = `rl:global:${projectId}:${userId}`;
+        const attempts = await redis.incr(key);
+
+        if (attempts === 1) {
+            await redis.expire(key, 60); // 1 minute window
+        }
+
+        return attempts <= 30; // Max 30 messages/actions per minute allowed
+    }
 }

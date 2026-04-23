@@ -199,11 +199,11 @@ export class AdminOrderService {
       action: 'ORDER_RESTART',
       target: orderId,
       targetType: 'ORDER',
-      oldValue: { status: order.status, error: order.error },
-      newValue: { status: 'PENDING', reChargeCents: order.charge },
+      oldValue: { status: result.oldStatus, error: result.oldError },
+      newValue: { status: 'PENDING', reChargeCents: result.charge },
     });
 
-    return { orderNumericId: order.numericId };
+    return { orderNumericId: result.orderNumericId };
   }
 
   /**

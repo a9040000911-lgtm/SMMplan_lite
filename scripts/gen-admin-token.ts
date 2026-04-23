@@ -22,12 +22,13 @@ async function main() {
   }
 
   const rawToken = crypto.randomBytes(32).toString('hex');
+  const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
   const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
   await db.authToken.create({
     data: {
       userId: owner.id,
-      token: rawToken,
+      token: hashedToken,
       expiresAt,
     },
   });

@@ -30,6 +30,7 @@ model User {
   payments   Payment[]
   tickets    Ticket[]
   auditLogs  AuditLog[]
+  ledgerLogs LedgerEntry[] @relation("UserLedger")
 
   // Referrals
   referredBy User?        @relation("ReferralTree", fields: [referredById], references: [id], onDelete: SetNull)
@@ -42,7 +43,7 @@ model PromoCode {
   code            String    @unique
   type            String    @default("DISCOUNT") // DISCOUNT (%), VOUCHER (fixed amount)
   discountPercent Float     // 10.0 = 10% (used when type=DISCOUNT)
-  amount          Float     @default(0) // Fixed amount in RUB (used when type=VOUCHER)
+  amount          Int       @default(0) // Fixed amount in Cents (used when type=VOUCHER)
   maxUses         Int       @default(1)
   uses            Int       @default(0)
   isActive        Boolean   @default(true)
@@ -92,7 +93,7 @@ model Category {
   id          String    @id @default(cuid())
   name        String
   networkId   String?
-  network     Network?  @relation(fields: [networkId], references: [id], onDelete: Cascade)
+  network     Network?  @relation(fields: [networkId], references: [id], onDelete: Restrict)
   sort        Int       @default(0)
   services    Service[]
   createdAt   DateTime  @default(now())
@@ -107,7 +108,7 @@ model Service {
   name        String
   description String?   // Public SEO description (shown to clients)
   categoryId  String
-  category    Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  category    Category  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   providerId  String?   // Link to Provider who fulfills this service
   provider    Provider? @relation(fields: [providerId], references: [id], onDelete: SetNull)
   rate        Float     // provider rate per 1000
@@ -176,8 +177,8 @@ model Order {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  service      Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  service      Service  @relation(fields: [serviceId], references: [id], onDelete: Restrict)
   payment      Payment? // One-to-one: the payment that funds this order
   refills      Refill[]
 
@@ -203,7 +204,7 @@ model Refill {
 model Payment {
   id          String   @id @default(cuid())
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Restrict)
   
   orderId     String?  @unique // Links this payment to a specific order
   order       Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
@@ -344,7 +345,8 @@ model AdminAuditLog {
 model LedgerEntry {
   id        String   @id @default(cuid())
   userId    String   // Client whose balance was affected
-  adminId   String   // Support agent who initiated
+  user      User     @relation("UserLedger", fields: [userId], references: [id], onDelete: Restrict)
+  adminId   String?  // Support agent who initiated, null if SYSTEM/auto
   amount    Int      // Amount in Cents (positive = credit, negative = debit)
   reason    String   // Mandatory justification text
   status    String   @default("APPROVED") // APPROVED, QUARANTINE, REJECTED
@@ -354,4 +356,13 @@ model LedgerEntry {
   @@index([userId])
   @@index([status])
   @@index([adminId])
+}
+
+model SupportTemplate {
+  id        String   @id @default(cuid())
+  label     String
+  text      String
+  sort      Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
