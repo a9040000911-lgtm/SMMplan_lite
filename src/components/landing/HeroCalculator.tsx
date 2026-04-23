@@ -6,6 +6,7 @@ import { checkoutAction, calculatePriceAction } from "@/actions/order/checkout";
 import type { PricingResult } from "@/services/marketing.service";
 import { getServicesByCategoryAction } from "@/actions/order/catalog";
 import type { PublicCategory, PublicService } from "@/actions/order/catalog";
+import { formatCents } from "@/lib/utils";
 import {
   Send,
   Instagram,
@@ -139,9 +140,9 @@ export function HeroCalculator({
   };
 
   const fallbackPriceCents = activeSrv ? Math.round(activeSrv.pricePer1kRub * (qty / 1000) * 100) : 0;
-  const priceRub = pricing ? (pricing.totalCents / 100).toFixed(0) : (fallbackPriceCents / 100).toFixed(0);
+  const priceRub = pricing ? formatCents(pricing.totalCents, 0) : formatCents(fallbackPriceCents, 0);
   const oldPriceRub = pricing && pricing.discountPercent > 0
-    ? (pricing.originalTotalCents / 100).toFixed(0) : null;
+    ? formatCents(pricing.originalTotalCents, 0) : null;
 
   return (
     <>

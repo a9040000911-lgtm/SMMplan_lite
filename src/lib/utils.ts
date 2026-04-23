@@ -5,7 +5,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatCents(cents: number | undefined | null): string {
-  if (!cents) return "0.00";
-  return (Math.round(cents) / 100).toFixed(2);
+export function formatCents(cents: number | undefined | null, decimals: number = 2): string {
+  if (!cents) return decimals === 0 ? "0" : (0).toFixed(decimals);
+  return (Math.round(cents) / 100).toFixed(decimals);
 }

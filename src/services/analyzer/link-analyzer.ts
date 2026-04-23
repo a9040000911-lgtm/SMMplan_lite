@@ -3,6 +3,8 @@ import { IntelligencePlatform, LINK_RULES } from './link-rules';
 export interface IntelligenceLinkMetadata {
     isLive?: boolean;
     context?: string;
+    isPrivate?: boolean;
+    isAlbum?: boolean;
 }
 
 export interface IntelligenceAnalysisResult {

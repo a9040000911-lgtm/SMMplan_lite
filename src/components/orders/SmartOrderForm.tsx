@@ -7,6 +7,7 @@ import { IntelligencePlatform } from "@/services/analyzer/link-rules";
 import { DripFeedSettings } from "@/components/orders/DripFeedSettings";
 import { PricingResult } from "@/services/marketing.service";
 import { useRouter } from "next/navigation";
+import { formatCents } from "@/lib/utils";
 
 import { getPublicCatalogAction, getServicesByCategoryAction, PublicCategory, PublicService } from "@/actions/order/catalog";
 
@@ -239,10 +240,10 @@ export function SmartOrderForm() {
                  )}
                </div>
                <div className="text-3xl font-bold text-zinc-900">
-                 {pricing ? (pricing.totalCents / 100).toFixed(2) : "0.00"} ₽
+                 {pricing ? formatCents(pricing.totalCents) : "0.00"} ₽
                  {pricing && pricing.discountPercent > 0 && (
                    <div className="text-sm line-through text-zinc-400 absolute right-8 -mt-1 opacity-70">
-                     {(pricing.originalTotalCents / 100).toFixed(2)} ₽
+                     {formatCents(pricing.originalTotalCents)} ₽
                    </div>
                  )}
                </div>

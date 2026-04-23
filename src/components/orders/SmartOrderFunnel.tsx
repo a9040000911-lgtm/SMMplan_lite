@@ -9,6 +9,7 @@ import { getPublicCatalogAction, getServicesByCategoryAction, PublicCategory, Pu
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Info, Sparkles, CheckCircle2, ChevronRight, ShoppingCart, Tag } from "lucide-react";
+import { formatCents } from "@/lib/utils";
 
 export function SmartOrderFunnel({ initialEmail = "" }: { initialEmail?: string }) {
   const router = useRouter();
@@ -477,7 +478,7 @@ export function SmartOrderFunnel({ initialEmail = "" }: { initialEmail?: string 
                      <div className="text-right flex-shrink-0">
                         <div className="text-sm font-semibold text-slate-500 mb-0.5">К оплате</div>
                         <div className={`text-3xl font-black text-slate-900 leading-none transition-all duration-300 ${isCalculating ? 'blur-[4px] opacity-50 scale-95' : 'blur-0 opacity-100 scale-100'}`}>
-                           {pricing ? (pricing.totalCents / 100).toFixed(2) : "0.00"} <span className="text-xl">₽</span>
+                           {pricing ? formatCents(pricing.totalCents) : "0.00"} <span className="text-xl">₽</span>
                         </div>
                      </div>
                      
