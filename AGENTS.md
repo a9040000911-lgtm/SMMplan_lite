@@ -15,6 +15,13 @@
 
 ## Architecture Rules
 
+### Zero-Defect Execution Protocol (AUTONOMOUS SURGEON)
+**🔴 ОБЯЗАТЕЛЬНО для всех AI-агентов (Gemini, Cursor, Copilot) при написании кода:**
+1. **Architectural Pause**: ПЕРЕД написанием кода явно прочекайте границы: где Server Component, где Client Component.
+2. **Data Leak Prevention**: КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО отправлять сырые объекты Prisma или коммерческую тайну (rate, markup) на клиент. Всегда формируйте строгие DTO.
+3. **Dead-UI Prevention**: Не оставляйте "кнопки-пустышки". Если фича не готова — скрывайте UI (`{false && <Component/>}`).
+4. **Mandatory Self-Verification**: После изменения файлов, ДО финального рапорта пользователю, агент **ОБЯЗАН** запустить в фоне проверку типов (`npx tsc --noEmit` или `npm run build` для проверки). Ошибки нужно править автономно!
+
 ### Server/Client Boundary
 - Server Components по умолчанию. `'use client'` только при необходимости (hooks, browser APIs).
 - Server Actions в `src/actions/` с обязательным `requireAdmin()` guard.

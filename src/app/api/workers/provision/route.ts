@@ -11,6 +11,22 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // 1.5. Sanitary worker: Isolate Zombie Orders (OPUS FIX: Prevent Double Spend)
+  const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000);
+  const zombies = await db.order.updateMany({
+    where: { 
+      status: 'PROVISIONING',
+      updatedAt: { lt: fiveMinsAgo }
+    },
+    data: { 
+      status: 'ERROR',
+      error: 'CRITICAL: Stuck in PROVISIONING. Manual review required to prevent double spend.'
+    }
+  });
+  if (zombies.count > 0) {
+    console.warn(`[Worker] Isolated ${zombies.count} zombie orders to ERROR state to prevent silent double spends.`);
+  }
+
   // 2. Fetch Pending Orders (Limit 50 to avoid lambda timeouts)
   const pendingOrders = await db.order.findMany({
     where: { status: 'PENDING', isDripFeed: false },
@@ -80,6 +96,14 @@ export async function GET(request: Request) {
                 totalSpent: { decrement: order.charge }
               }
             });
+            await tx.ledgerEntry.create({
+              data: {
+                userId: order.userId,
+                amount: order.charge,
+                reason: "Auto-refund: FATAL provider rejection",
+                status: "APPROVED"
+              }
+            });
           });
         } else {
           await db.order.update({
@@ -108,6 +132,14 @@ export async function GET(request: Request) {
           await tx.user.update({
             where: { id: order.userId },
             data: { balance: { increment: order.charge }, totalSpent: { decrement: order.charge } }
+          });
+          await tx.ledgerEntry.create({
+            data: {
+              userId: order.userId,
+              amount: order.charge,
+              reason: "Auto-refund: Worker Exception (FATAL)",
+              status: "APPROVED"
+            }
           });
         });
       } else {
